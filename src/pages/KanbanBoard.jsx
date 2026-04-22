@@ -7,7 +7,8 @@ import {
   DndContext,
   useSensor,
   useSensors,
-  PointerSensor
+  PointerSensor,
+  DragOverlay,
 } from "@dnd-kit/core";
 import { Zap, Settings, Plus } from "lucide-react";
 
@@ -16,10 +17,15 @@ export default function KanbanBoard() {
   const [tasks, setTasks] = useState([]);
   const [statuses, setStatuses] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [activeId, setActiveId] = useState(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 5 },
+      activationConstraint: {
+        distance: 8,
+        delay: 100,
+        tolerance: 5,
+      },
     })
   );
 
@@ -37,13 +43,22 @@ export default function KanbanBoard() {
     }
   }, [projectId]);
 
+  const handleDragStart = (event) => {
+    setActiveId(event.active.id);
+  };
+
   const handleDragEnd = async (event) => {
     const { active, over } = event;
+    setActiveId(null);
 
     if (!over) return;
 
     const taskId = parseInt(active.id);
     const newStatusId = parseInt(over.id);
+
+    // Check if task actually moved to a different status
+    const task = tasks.find(t => t.id === taskId);
+    if (task?.statusId === newStatusId) return;
 
     await moveTask(taskId, newStatusId);
 
@@ -53,6 +68,8 @@ export default function KanbanBoard() {
       )
     );
   };
+
+  const activeTask = tasks.find(t => t.id === parseInt(activeId));
 
   const totalTasks = tasks.length;
 
@@ -125,7 +142,11 @@ export default function KanbanBoard() {
             </p>
           </div>
         ) : (
-          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+          <DndContext 
+            sensors={sensors} 
+            onDragEnd={handleDragEnd}
+            onDragStart={handleDragStart}
+          >
             <div className="flex gap-6 overflow-x-auto pb-4">
               {statuses.map((status) => (
                 <Column key={status.id} status={status} tasks={tasks} />
@@ -139,6 +160,19 @@ export default function KanbanBoard() {
                 </button>
               </div>
             </div>
+
+            {/* Drag Overlay - Shows dragged item attached to cursor */}
+            <DragOverlay>
+              {activeTask ? (
+                <div className="bg-white rounded-xl shadow-2xl p-4 border-2 border-blue-500 w-80 cursor-grabbing">
+                  <div className="font-semibold text-gray-900 mb-2">{activeTask.title}</div>
+                  {activeTask.description && (
+                    <div className="text-sm text-gray-600 mb-2 line-clamp-1">{activeTask.description}</div>
+                  )}
+                  <div className="text-xs text-gray-500">Dragging...</div>
+                </div>
+              ) : null}
+            </DragOverlay>
           </DndContext>
         )}
       </div>

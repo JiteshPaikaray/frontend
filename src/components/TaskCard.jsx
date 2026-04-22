@@ -1,4 +1,5 @@
 import { useDraggable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import { motion } from "framer-motion";
 import { Calendar, User, AlertCircle } from "lucide-react";
 
@@ -9,10 +10,9 @@ export default function TaskCard({ task }) {
     });
 
   const style = {
-    transform: transform
-      ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
-      : undefined,
-    zIndex: isDragging ? 1000 : "auto",
+    transform: CSS.Translate.toString(transform),
+    transition: isDragging ? "none" : "transform 200ms cubic-bezier(0.2, 0, 0, 1)",
+    opacity: isDragging ? 0.5 : 1,
   };
 
   const getPriorityColor = (priority) => {
@@ -40,16 +40,14 @@ export default function TaskCard({ task }) {
   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
 
   return (
-    <motion.div
+    <div
       ref={setNodeRef}
+      style={style}
       {...listeners}
       {...attributes}
-      style={style}
-      whileHover={{ scale: 1.02, y: -2 }}
-      whileTap={{ scale: 0.98 }}
-      className={`bg-white rounded-xl shadow-md hover:shadow-lg p-4 border border-gray-200 transition-all duration-200
+      className={`bg-white rounded-xl shadow-md p-4 border border-gray-200 transition-all duration-200
         cursor-grab active:cursor-grabbing
-        ${isDragging ? "shadow-2xl ring-2 ring-blue-500" : ""}
+        ${isDragging ? "shadow-2xl ring-2 ring-blue-500 scale-105 rotate-2" : "hover:shadow-lg hover:border-gray-300"}
       `}
     >
       {/* Task Title */}
@@ -96,6 +94,6 @@ export default function TaskCard({ task }) {
       <div className="mt-3 pt-2 border-t border-gray-100 text-xs text-gray-400">
         #{task.id}
       </div>
-    </motion.div>
+    </div>
   );
 }
