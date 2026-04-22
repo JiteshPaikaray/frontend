@@ -1,35 +1,26 @@
-import { useState } from "react";
-import TransactionList from './components/TransactionList';
-import UserMaster from './components/UserMaster';
-import './App.css';
-import Login from "./components/Login";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Login from "./pages/auth/Login";
+import Dashboard from "./pages/Dashboard";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [page, setPage] = useState('login'); // 'login' | 'users' | 'transactions'
-
-  const handleTransactionAdded = () => {
-    setRefreshKey(prev => prev + 1);
-  };
-
-  const handleLoginSuccess = () => {
-    setPage('users');
-  };
-
   return (
-    <div className="app">
-      <header>
-        <h1>AI Finance Tracker</h1>
-      </header>
-      
-      <main>
-        <div className="container">
-          {page === 'login' && <Login onLoginSuccess={handleLoginSuccess} />}
-          {page === 'users' && <UserMaster />}
-          {page === 'transactions' && <TransactionList key={refreshKey} />}
-        </div>
-      </main>
-    </div>
+    <BrowserRouter basename="/frontend">
+      <Routes>
+        <Route path="/login" element={<Login />} />
+
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
