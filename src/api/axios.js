@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://webapijitesh.runasp.net/api",
+  baseURL: "https://webapijitesh.runasp.net/api",
 });
 
 // Attach token automatically
