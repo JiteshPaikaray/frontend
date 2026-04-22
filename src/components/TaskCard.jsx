@@ -3,25 +3,18 @@ import { CSS } from "@dnd-kit/utilities";
 import { Calendar, User, AlertCircle, CheckCircle2 } from "lucide-react";
 
 export default function TaskCard({ task }) {
-  // const { attributes, listeners, setNodeRef, transform, isDragging } =
-  //   useDraggable({
-  //     id: String(task.id),
-  //   });
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-  id: task.id,
-});
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: String(task.id),
+    });
+  
 
-  // const style = {
-  //   transform: CSS.Translate.toString(transform),
-  //   transition: isDragging ? "none" : "all 200ms cubic-bezier(0.2, 0, 0, 1)",
-  //   opacity: isDragging ? 0.5 : 1,
-  // };
   const style = {
-  // If the item is being dragged, make the original one semi-transparent
-  opacity: isDragging ? 0.3 : 1, 
-  // Optional: add a dashed border to the ghost
-  border: isDragging ? '2px dashed #cbd5e1' : 'none',
-};
+    transform: CSS.Translate.toString(transform),
+    transition: isDragging ? "none" : "all 200ms cubic-bezier(0.2, 0, 0, 1)",
+    opacity: isDragging ? 0.5 : 1,
+  };
+  
 
   const getPriorityColor = (priority) => {
     switch (priority?.toLowerCase()) {
@@ -40,19 +33,18 @@ export default function TaskCard({ task }) {
   const priorityColor = getPriorityColor(task.priority);
 
   return (
-    // <div
-    //   ref={setNodeRef}
-    //   style={style}
-    //   {...listeners}
-    //   {...attributes}
-    //   className={`group relative bg-white rounded-lg border transition-all duration-200 p-3
-    //     ${isDragging 
-    //       ? "shadow-2xl ring-2 ring-blue-500 scale-105" 
-    //       : "border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 cursor-grab active:cursor-grabbing"
-    //     }
-    //   `}
-    // >
-    <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className={`group relative bg-white rounded-lg border transition-all duration-200 p-3
+        ${isDragging 
+          ? "shadow-2xl ring-2 ring-blue-500 scale-105" 
+          : "border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 cursor-grab active:cursor-grabbing"
+        }
+      `}
+    >
       {/* Priority Indicator Dot */}
       <div className={`absolute top-3 right-3 w-2 h-2 rounded-full ${priorityColor.dot}`}></div>
 
