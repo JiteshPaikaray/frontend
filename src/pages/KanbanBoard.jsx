@@ -129,12 +129,12 @@ export default function KanbanBoard() {
             ))}
           </div>
 
-          {/* Inside your DndContext */}
+          {/* Drag Overlay */}
           <DragOverlay>
             {activeTask ? (
-              <div className="cursor-grabbing" style={{ transform: 'rotate(3deg)' }}>
-                {/* Assuming you have a TaskCard component, render it here! */}
-                <TaskCard task={activeTask} isOverlay={true} />
+              <div className="bg-white rounded-lg shadow-xl p-3 w-80 border border-blue-500 cursor-grabbing">
+                <h4 className="font-medium text-gray-900 text-sm mb-1">{activeTask.title}</h4>
+                <p className="text-xs text-gray-500">Dragging...</p>
               </div>
             ) : null}
           </DragOverlay>
