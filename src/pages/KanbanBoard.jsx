@@ -46,27 +46,76 @@ export default function KanbanBoard() {
     setActiveId(event.active.id);
   };
 
-  const handleDragEnd = async (event) => {
+  // const handleDragEnd = async (event) => {
+  //   const { active, over } = event;
+  //   setActiveId(null);
+
+  //   if (!over) return;
+
+  //   const taskId = parseInt(active.id);
+  //   const newStatusId = parseInt(over.id);
+
+  //   const task = tasks.find(t => t.id === taskId);
+  //   if (task?.statusId === newStatusId) return;
+
+  //   await moveTask(taskId, newStatusId);
+
+  //   setTasks((prev) =>
+  //     prev.map((t) =>
+  //       t.id === taskId ? { ...t, statusId: newStatusId } : t
+  //     )
+  //   );
+  // };
+const handleDragEnd = async (event) => {
     const { active, over } = event;
     setActiveId(null);
 
+    // If dropped outside any droppable area
     if (!over) return;
 
     const taskId = parseInt(active.id);
-    const newStatusId = parseInt(over.id);
+    let newStatusId;
 
+    // 1. Check if the drop target is a Column (Status)
+    const isOverColumn = statuses.some(status => status.id === parseInt(over.id));
+
+    if (isOverColumn) {
+      // User dropped it on the empty space of a column
+      newStatusId = parseInt(over.id);
+    } else {
+      // 2. User dropped it on top of another Task
+      // Find the task they dropped it over to figure out what column it belongs to
+      const overTask = tasks.find(t => t.id === parseInt(over.id));
+      
+      if (overTask) {
+        newStatusId = overTask.statusId;
+      } else {
+        // Unknown drop target, abort
+        return; 
+      }
+    }
+
+    // Find the task being moved
     const task = tasks.find(t => t.id === taskId);
+    
+    // If it's already in the correct column, do nothing
     if (task?.statusId === newStatusId) return;
 
-    await moveTask(taskId, newStatusId);
-
+    // Optimistic UI Update (Update state before API call for a snappy feel)
     setTasks((prev) =>
       prev.map((t) =>
         t.id === taskId ? { ...t, statusId: newStatusId } : t
       )
     );
-  };
 
+    // Make the API call in the background
+    try {
+      await moveTask(taskId, newStatusId);
+    } catch (error) {
+      console.error("Failed to move task:", error);
+      // Optional: Revert state here if API fails
+    }
+  };
   const activeTask = tasks.find(t => t.id === parseInt(activeId));
   const totalTasks = tasks.length;
 
@@ -129,12 +178,12 @@ export default function KanbanBoard() {
             ))}
           </div>
 
-          {/* Drag Overlay */}
+          {/* Inside your DndContext */}
           <DragOverlay>
             {activeTask ? (
-              <div className="bg-white rounded-lg shadow-xl p-3 w-80 border border-blue-500 cursor-grabbing">
-                <h4 className="font-medium text-gray-900 text-sm mb-1">{activeTask.title}</h4>
-                <p className="text-xs text-gray-500">Dragging...</p>
+              <div className="cursor-grabbing" style={{ transform: 'rotate(3deg)' }}>
+                {/* Assuming you have a TaskCard component, render it here! */}
+                <TaskCard task={activeTask} isOverlay={true} />
               </div>
             ) : null}
           </DragOverlay>
