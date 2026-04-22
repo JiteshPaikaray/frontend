@@ -1,15 +1,17 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import KanbanBoard from "./KanbanBoard";
 import { LogOut, Menu, X } from "lucide-react";
 
 export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("userId");
     localStorage.removeItem("tenantId");
-    window.location.href = "/login";
+    navigate("/login");
   };
 
   return (

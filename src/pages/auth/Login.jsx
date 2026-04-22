@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 import { Mail, Lock, Loader } from "lucide-react";
 
@@ -7,6 +8,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -23,7 +25,8 @@ export default function Login() {
       localStorage.setItem("userId", res.data.userId);
       localStorage.setItem("tenantId", res.data.tenantId);
 
-      window.location.href = "/";
+      // Use React Router navigation instead of window.location
+      navigate("/");
     } catch (err) {
       setError("Invalid email or password. Please try again.");
     } finally {
