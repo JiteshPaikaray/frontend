@@ -16,7 +16,7 @@ const TransactionList = () => {
             console.log('Fetched transactions:', data);
             setTransactions(data);
             setLoading(false);
-        } catch (err) {
+        } catch {
             setError('Failed to fetch transactions');
             setLoading(false);
         }

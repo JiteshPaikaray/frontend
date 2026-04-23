@@ -27,7 +27,7 @@ export default function Login() {
 
       // Use React Router navigation instead of window.location
       navigate("/");
-    } catch (err) {
+    } catch {
       setError("Invalid email or password. Please try again.");
     } finally {
       setLoading(false);

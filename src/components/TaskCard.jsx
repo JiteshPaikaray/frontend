@@ -1,93 +1,209 @@
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { Calendar, User, AlertCircle, CheckCircle2 } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
+  BookOpenText,
+  Bug,
+  CalendarClock,
+  CheckSquare,
+  Sparkles,
+  UserRound,
+} from "lucide-react";
+import {
+  formatBoardDate,
+  getInitials,
+  getIssueType,
+  getPriorityLevel,
+  getTaskKey,
+  isTaskOverdue,
+} from "../utils/kanban";
 
-export default function TaskCard({ task }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({
-      id: String(task.id),
-    });
-  
+function getIssueTypeVisual(task) {
+  const issueType = getIssueType(task);
 
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    transition: isDragging ? "none" : "all 200ms cubic-bezier(0.2, 0, 0, 1)",
-    opacity: isDragging ? 0.5 : 1,
+  switch (issueType) {
+    case "bug":
+      return {
+        icon: Bug,
+        label: "Bug",
+        iconClasses: "bg-red-100 text-red-700",
+      };
+    case "story":
+      return {
+        icon: BookOpenText,
+        label: "Story",
+        iconClasses: "bg-emerald-100 text-emerald-700",
+      };
+    case "spike":
+      return {
+        icon: Sparkles,
+        label: "Spike",
+        iconClasses: "bg-violet-100 text-violet-700",
+      };
+    default:
+      return {
+        icon: CheckSquare,
+        label: "Task",
+        iconClasses: "bg-blue-100 text-blue-700",
+      };
+  }
+}
+
+function getPriorityVisual(priority) {
+  const level = getPriorityLevel(priority);
+
+  if (level >= 3) {
+    return {
+      icon: ArrowUp,
+      label: priority || "High",
+      classes: "bg-red-50 text-red-700 ring-red-100",
+    };
+  }
+
+  if (level === 2) {
+    return {
+      icon: ArrowRight,
+      label: priority || "Medium",
+      classes: "bg-amber-50 text-amber-700 ring-amber-100",
+    };
+  }
+
+  return {
+    icon: ArrowDown,
+    label: priority || "Low",
+    classes: "bg-emerald-50 text-emerald-700 ring-emerald-100",
   };
-  
+}
 
-  const getPriorityColor = (priority) => {
-    switch (priority?.toLowerCase()) {
-      case "high":
-        return { bg: "bg-red-50", border: "border-red-200", text: "text-red-700", dot: "bg-red-500" };
-      case "medium":
-        return { bg: "bg-yellow-50", border: "border-yellow-200", text: "text-yellow-700", dot: "bg-yellow-500" };
-      case "low":
-        return { bg: "bg-green-50", border: "border-green-200", text: "text-green-700", dot: "bg-green-500" };
-      default:
-        return { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", dot: "bg-blue-500" };
-    }
-  };
-
-  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
-  const priorityColor = getPriorityColor(task.priority);
+function TaskCardShell({ task, projectKey, cardRef, style, listeners, attributes, isDragging, isOverlay }) {
+  const issueType = getIssueTypeVisual(task);
+  const priority = getPriorityVisual(task.priority);
+  const overdue = isTaskOverdue(task);
+  const assigneeInitials = getInitials(task.assignedUserName);
+  const IssueIcon = issueType.icon;
+  const PriorityIcon = priority.icon;
 
   return (
-    <div
-      ref={setNodeRef}
+    <article
+      ref={cardRef}
       style={style}
       {...listeners}
       {...attributes}
-      className={`group relative bg-white rounded-lg border transition-all duration-200 p-3
-        ${isDragging 
-          ? "shadow-2xl ring-2 ring-blue-500 scale-105" 
-          : "border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 cursor-grab active:cursor-grabbing"
-        }
-      `}
+      className={`rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition ${
+        isOverlay
+          ? "w-[296px] rotate-1 shadow-[0_24px_60px_-28px_rgba(15,23,42,0.45)]"
+          : isDragging
+            ? "cursor-grabbing opacity-40"
+            : "cursor-grab hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md active:cursor-grabbing"
+      }`}
     >
-      {/* Priority Indicator Dot */}
-      <div className={`absolute top-3 right-3 w-2 h-2 rounded-full ${priorityColor.dot}`}></div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="inline-flex items-center gap-2">
+          <span
+            className={`inline-flex h-7 w-7 items-center justify-center rounded-xl ${issueType.iconClasses}`}
+          >
+            <IssueIcon className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              {issueType.label}
+            </p>
+            <p className="text-xs font-semibold text-slate-500">{getTaskKey(task, projectKey)}</p>
+          </div>
+        </div>
 
-      {/* Task Title */}
-      <h3 className="text-sm font-medium text-gray-900 mb-2 pr-4 line-clamp-2 group-hover:text-gray-700">
-        {task.title}
-      </h3>
+        <span
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold ring-1 ${priority.classes}`}
+        >
+          <PriorityIcon className="h-3.5 w-3.5" />
+          {priority.label}
+        </span>
+      </div>
 
-      {/* Task Description if available */}
+      <h3 className="mt-4 text-sm font-semibold leading-6 text-slate-900">{task.title || "Untitled issue"}</h3>
+
       {task.description && (
-        <p className="text-xs text-gray-600 mb-3 line-clamp-2">
-          {task.description}
-        </p>
+        <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">{task.description}</p>
       )}
 
-      {/* Footer Section */}
-      <div className="space-y-2">
-        {/* Assigned User */}
-        {task.assignedUserName && (
-          <div className="flex items-center gap-1.5 text-xs">
-            <User className="w-3.5 h-3.5 text-gray-400" />
-            <span className="text-gray-600 truncate">{task.assignedUserName}</span>
-          </div>
-        )}
-
-        {/* Due Date */}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         {task.dueDate && (
-          <div className={`flex items-center gap-1.5 text-xs ${isOverdue ? "text-red-600 font-medium" : "text-gray-500"}`}>
-            <Calendar className="w-3.5 h-3.5" />
-            <span>{new Date(task.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-            {isOverdue && <span className="ml-auto">Overdue</span>}
-          </div>
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+              overdue
+                ? "bg-red-50 text-red-700 ring-1 ring-red-100"
+                : "bg-slate-100 text-slate-600 ring-1 ring-slate-200"
+            }`}
+          >
+            <CalendarClock className="h-3.5 w-3.5" />
+            {formatBoardDate(task.dueDate)}
+            {overdue && <AlertTriangle className="h-3.5 w-3.5" />}
+          </span>
         )}
-
-        {/* Priority Badge */}
-        <div className="flex items-center justify-between pt-1">
-          <div className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${priorityColor.text} ${priorityColor.bg} border ${priorityColor.border}`}>
-            {task.priority === "High" && <AlertCircle className="w-3 h-3" />}
-            {task.priority}
-          </div>
-          <span className="text-xs text-gray-400">#{task.id}</span>
-        </div>
       </div>
-    </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Assignee</p>
+          <p className="truncate text-sm font-medium text-slate-700">
+            {task.assignedUserName || "Unassigned"}
+          </p>
+        </div>
+
+        {task.assignedUserName ? (
+          <span
+            title={task.assignedUserName}
+            className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white"
+          >
+            {assigneeInitials}
+          </span>
+        ) : (
+          <span className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+            <UserRound className="h-4 w-4" />
+          </span>
+        )}
+      </div>
+    </article>
+  );
+}
+
+export default function TaskCard({ task, projectKey }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: String(task.id),
+  });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition: isDragging ? "none" : "transform 180ms ease, box-shadow 180ms ease",
+  };
+
+  return (
+    <TaskCardShell
+      task={task}
+      projectKey={projectKey}
+      cardRef={setNodeRef}
+      style={style}
+      listeners={listeners}
+      attributes={attributes}
+      isDragging={isDragging}
+      isOverlay={false}
+    />
+  );
+}
+
+export function TaskCardOverlay({ task, projectKey }) {
+  return (
+    <TaskCardShell
+      task={task}
+      projectKey={projectKey}
+      style={undefined}
+      listeners={undefined}
+      attributes={undefined}
+      isDragging={false}
+      isOverlay
+    />
   );
 }

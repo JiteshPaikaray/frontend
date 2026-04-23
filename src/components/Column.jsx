@@ -1,71 +1,70 @@
 import { useDroppable } from "@dnd-kit/core";
 import TaskCard from "./TaskCard";
+import { getStatusTone } from "../utils/kanban";
 
-export default function Column({ status, tasks }) {
+export default function Column({ status, tasks, projectKey, isFiltered = false }) {
   const { setNodeRef, isOver } = useDroppable({
-    id: String(status.id),
+    id: `status-${status.id}`,
   });
 
-  const columnTasks = tasks.filter((t) => t.statusId === status.id);
-
-  const getStatusColor = (statusName) => {
-    const name = statusName?.toLowerCase();
-    switch (true) {
-      case name?.includes("todo") || name?.includes("backlog"):
-        return { badge: "bg-slate-100 text-slate-700" };
-      case name?.includes("in progress") || name?.includes("doing"):
-        return { badge: "bg-blue-100 text-blue-700" };
-      case name?.includes("review") || name?.includes("qa"):
-        return { badge: "bg-purple-100 text-purple-700" };
-      case name?.includes("done") || name?.includes("completed"):
-        return { badge: "bg-green-100 text-green-700" };
-      default:
-        return { badge: "bg-gray-100 text-gray-700" };
-    }
-  };
-
-  const colorScheme = getStatusColor(status.name);
+  const columnTasks = tasks.filter((task) => task.statusId === status.id);
+  const tone = getStatusTone(status.name);
 
   return (
-    <div
+    <section
       ref={setNodeRef}
-      className={`w-80 flex flex-col rounded-lg border transition-all duration-300 ${
-        isOver 
-          ? "bg-gray-50 border-blue-400 shadow-md ring-2 ring-blue-200" 
-          : "bg-white border-gray-200 shadow-sm"
+      className={`flex min-h-[620px] w-[320px] flex-shrink-0 flex-col rounded-[26px] border bg-slate-100/95 transition-all duration-200 ${
+        isOver
+          ? "border-blue-400 shadow-[0_16px_40px_-20px_rgba(37,99,235,0.45)] ring-4 ring-blue-100"
+          : "border-slate-200 shadow-sm"
       }`}
     >
-      {/* Column Header */}
-      <div className="px-4 py-3 border-b border-gray-200">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold text-gray-900">{status.name}</h3>
-          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold ${colorScheme.badge}`}>
-            {columnTasks.length}
-          </span>
+      <div className="rounded-t-[26px] border-b border-slate-200 bg-slate-100/95 backdrop-blur">
+        <div className={`h-1.5 rounded-t-[26px] ${tone.accent}`} />
+        <div className="px-4 pb-4 pt-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Status
+              </p>
+              <h3 className="mt-1 text-sm font-semibold text-slate-900">{status.name}</h3>
+            </div>
+
+            <span
+              className={`inline-flex min-w-9 items-center justify-center rounded-full px-2.5 py-1 text-xs font-semibold ${tone.badge}`}
+            >
+              {columnTasks.length}
+            </span>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500">
+            <span>{columnTasks.length === 1 ? "1 issue" : `${columnTasks.length} issues`}</span>
+            <span>{isOver ? "Drop to move" : "Drag issues here"}</span>
+          </div>
         </div>
       </div>
 
-      {/* Task List Container */}
-      <div className="flex-1 overflow-y-auto min-h-[500px]">
-        <div className="p-3 space-y-2">
-          {columnTasks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="text-gray-300 mb-2">
-                <svg className="w-10 h-10 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <p className="text-xs text-gray-400">No tasks</p>
+      <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
+        {columnTasks.length === 0 ? (
+          <div className="flex h-full min-h-[200px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/70 px-6 text-center">
+            <div
+              className={`mb-3 inline-flex h-10 w-10 items-center justify-center rounded-2xl ${tone.soft}`}
+            >
+              <div className={`h-2.5 w-2.5 rounded-full ${tone.dot}`} />
             </div>
-          ) : (
-            columnTasks.map((task) => (
-              <div key={task.id}>
-                <TaskCard task={task} />
-              </div>
-            ))
-          )}
-        </div>
+            <p className="text-sm font-medium text-slate-700">
+              {isFiltered ? "No matching issues" : "Nothing in this lane"}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              {isFiltered
+                ? "Try clearing search or filters to reveal more work."
+                : "Drop an issue here to update its status."}
+            </p>
+          </div>
+        ) : (
+          columnTasks.map((task) => <TaskCard key={task.id} task={task} projectKey={projectKey} />)
+        )}
       </div>
-    </div>
+    </section>
   );
 }

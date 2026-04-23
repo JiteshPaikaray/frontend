@@ -1,43 +1,69 @@
 import { useEffect, useState } from "react";
+import { ChevronDown, FolderKanban } from "lucide-react";
 import { getProjects } from "../services/projectService";
-import { ChevronDown, Folder } from "lucide-react";
 
-export default function ProjectSelector({ onSelect }) {
+export default function ProjectSelector({ onSelect, value = null }) {
   const [projects, setProjects] = useState([]);
-  const [selectedProject, setSelectedProject] = useState("");
-  const [isOpen, setIsOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    getProjects().then(setProjects);
+    let ignore = false;
+
+    async function loadProjects() {
+      setIsLoading(true);
+
+      try {
+        const data = await getProjects();
+
+        if (!ignore) {
+          setProjects(Array.isArray(data) ? data : []);
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadProjects();
+
+    return () => {
+      ignore = true;
+    };
   }, []);
 
-  const handleSelect = (value) => {
-    setSelectedProject(value);
-    onSelect(value);
-    setIsOpen(false);
-  };
+  function handleSelect(rawValue) {
+    const nextValue = rawValue === "" ? null : Number(rawValue);
+    const selectedProject =
+      projects.find((project) => String(project.id) === String(nextValue)) ?? null;
 
-  const selectedProjectName = projects.find(p => p.id === selectedProject)?.name;
+    onSelect(nextValue, selectedProject);
+  }
 
   return (
-    <div className="relative w-full max-w-sm">
-      <div className="relative">
-        <select
-          value={selectedProject}
-          onChange={(e) => handleSelect(e.target.value)}
-          onFocus={() => setIsOpen(true)}
-          onBlur={() => setIsOpen(false)}
-          className="w-full px-4 py-2.5 pl-4 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none cursor-pointer bg-white hover:border-gray-400 transition-all text-gray-900 text-sm"
-        >
-          <option value="">Select a project...</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-        <ChevronDown className={`absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-600 pointer-events-none transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </div>
+    <div className="relative min-w-[240px]">
+      <FolderKanban className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      <select
+        value={value == null ? "" : String(value)}
+        onChange={(event) => handleSelect(event.target.value)}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        disabled={isLoading}
+        className="w-full appearance-none rounded-2xl border border-slate-300 bg-white py-3 pl-11 pr-11 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+      >
+        <option value="">{isLoading ? "Loading projects..." : "Select project"}</option>
+        {projects.map((project) => (
+          <option key={project.id} value={project.id}>
+            {project.name}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        className={`pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-transform ${
+          isFocused ? "rotate-180" : ""
+        }`}
+      />
     </div>
   );
 }

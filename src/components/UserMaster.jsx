@@ -16,7 +16,7 @@ const UserMaster = () => {
       console.log("Fetched users:", data);
       setUsers(data);
       setLoading(false);
-    } catch (err) {
+    } catch {
       setError("Failed to fetch users");
       setLoading(false);
     }
