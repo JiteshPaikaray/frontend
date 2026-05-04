@@ -1,14 +1,13 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import Login from "./pages/auth/Login";
-import Dashboard from "./pages/Dashboard";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Dashboard from "./pages/Dashboard";
+import Login from "./pages/auth/Login";
 
 function App() {
   return (
-    <BrowserRouter basename="/frontend">
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
         <Route path="/login" element={<Login />} />
-
         <Route
           path="/"
           element={
@@ -17,7 +16,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>

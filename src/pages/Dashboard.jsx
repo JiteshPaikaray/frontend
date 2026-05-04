@@ -1,20 +1,21 @@
-import { useEffect, useState } from "react";
+import { createElement, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   BarChart3,
+  CalendarClock,
+  CheckCircle2,
   FolderKanban,
-  Home,
   Layers3,
   Loader2,
   LogOut,
-  Menu,
   Plus,
   RefreshCw,
+  Search,
   Settings2,
-  UserCircle2,
+  Sparkles,
   Users,
-  X,
+  UserCircle2,
 } from "lucide-react";
 import { getApiErrorMessage } from "../api/axios";
 import NotificationBell from "../components/NotificationBell";
@@ -23,14 +24,22 @@ import ProjectDialog from "../components/ProjectDialog";
 import ProjectSelector from "../components/ProjectSelector";
 import TaskComposerDialog from "../components/TaskComposerDialog";
 import TaskDetailsDrawer from "../components/TaskDetailsDrawer";
-import { changePassword, getProfile, getTenantUsers, updateProfile } from "../services/authService";
+import {
+  changePassword,
+  getProfile,
+  getTenantUsers,
+  updateProfile,
+} from "../services/authService";
 import {
   getDashboardOverdue,
   getDashboardStatusBreakdown,
   getDashboardSummary,
   getDashboardUserBreakdown,
 } from "../services/dashboardService";
-import { getNotifications, markNotificationAsRead } from "../services/notificationService";
+import {
+  getNotifications,
+  markNotificationAsRead,
+} from "../services/notificationService";
 import {
   createProject,
   deleteProject,
@@ -41,58 +50,398 @@ import {
   updateProject,
 } from "../services/projectService";
 import signalRService from "../services/signalr";
-import { createTask } from "../services/taskService";
+import { createTask, getTasksByProject } from "../services/taskService";
 import {
   clearAuthSession,
   getStoredSelectedProjectId,
   getStoredUserId,
   setStoredSelectedProjectId,
 } from "../utils/auth";
-import { formatDateTime, getInitials } from "../utils/formatters";
+import { formatShortDate, getInitials } from "../utils/formatters";
 import KanbanBoard from "./KanbanBoard";
 
-function SummaryCard({ label, value, helper, tone = "slate" }) {
+function buildSeries(source = [], minimumLength = 7) {
+  const values = source
+    .map((value) => Number(value) || 0)
+    .filter((value) => value >= 0);
+
+  if (values.length === 0) {
+    return Array.from({ length: minimumLength }, (_, index) => (index % 3 === 0 ? 3 : 2));
+  }
+
+  const padded = [...values];
+
+  while (padded.length < minimumLength) {
+    const previous = padded[padded.length - 1] || 1;
+    const nextValue = Math.max(1, previous - (padded.length % 2 === 0 ? 0 : 1));
+    padded.push(nextValue);
+  }
+
+  return padded.slice(0, minimumLength);
+}
+
+function addDays(baseDate, amount) {
+  const date = new Date(baseDate);
+  date.setDate(date.getDate() + amount);
+  return date;
+}
+
+function WorkspaceMetric({ icon, label, value, helper, tone = "neutral" }) {
   const toneClasses = {
-    slate: "bg-black text-white shadow-yellow-300/50",
-    blue: "bg-yellow-500 text-slate-950 shadow-yellow-200/70",
-    emerald: "bg-green-600 text-white shadow-green-200/70",
-    amber: "bg-amber-500 text-slate-950 shadow-amber-200/70",
+    neutral: "bg-[#d7d6dc] text-[#6c6874]",
+    warm: "bg-[#eedfc7] text-[#b48543]",
+    mint: "bg-[#d8ece7] text-[#6b9a8f]",
+    sky: "bg-[#d9e5f3] text-[#7c97b9]",
+    rose: "bg-[#efd6d6] text-[#bf7d7d]",
+    violet: "bg-[#e3ddf0] text-[#87789f]",
   };
 
   return (
-    <div className={`rounded-[28px] p-5 shadow-lg ${toneClasses[tone]}`}>
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-70">{label}</p>
-      <p className="mt-4 text-3xl font-semibold tracking-tight">{value}</p>
-      <p className="mt-2 text-sm opacity-80">{helper}</p>
+    <div className="rounded-[28px] border border-[#e2dfe4] bg-white/70 px-5 py-5 shadow-[0_18px_40px_-34px_rgba(82,82,91,0.45)]">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#b0adb5]">
+            {label}
+          </p>
+          <p className="mt-3 text-[31px] font-semibold tracking-[-0.03em] text-[#6a6671]">
+            {value}
+          </p>
+          <p className="mt-2 text-sm leading-6 text-[#b2afb7]">{helper}</p>
+        </div>
+        <span
+          className={`inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full ${toneClasses[tone]}`}
+        >
+          {createElement(icon, { className: "h-5 w-5" })}
+        </span>
+      </div>
     </div>
   );
 }
 
-function StatusBar({ label, count, total }) {
-  const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+function InsightBadge({ label }) {
+  return (
+    <span className="inline-flex rounded-full bg-[#d0d0d6] px-3 py-1 text-[11px] font-semibold text-white">
+      {label}
+    </span>
+  );
+}
+
+function InsightCard({ eyebrow, title, preview, footer, badges = [] }) {
+  return (
+    <article className="rounded-[28px] border border-[#e1dee3] bg-white/85 p-4 shadow-[0_18px_40px_-34px_rgba(82,82,91,0.45)]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#bebac2]">
+            {eyebrow}
+          </p>
+          <h3 className="mt-2 text-lg font-medium leading-7 text-[#8a8693]">{title}</h3>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {badges.map((badge) => (
+            <InsightBadge key={badge} label={badge} />
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-[22px] bg-[#f4f3f0] px-3 py-3">{preview}</div>
+      <p className="mt-3 text-sm leading-6 text-[#c0bcc4]">{footer}</p>
+    </article>
+  );
+}
+
+function ScheduledReportsPanel({ reports = [], loading = false }) {
+  return (
+    <section className="rounded-[28px] border border-[#e2dfe4] bg-white/78 px-5 py-5 shadow-[0_18px_40px_-34px_rgba(82,82,91,0.45)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#b8b4bd]">
+            Scheduled Reports
+          </p>
+          <p className="mt-2 text-sm leading-6 text-[#b2afb7]">
+            Weekly delivery snapshots and stakeholder-ready summaries.
+          </p>
+        </div>
+        {loading && <Loader2 className="mt-1 h-4 w-4 animate-spin text-[#bbb7bf]" />}
+      </div>
+
+      <div className="mt-4 space-y-4">
+        {reports.map((report) => (
+          <div key={report.name} className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-[#8f8a98]">{report.name}</p>
+              <p className="mt-1 text-xs text-[#c0bcc4]">
+                Next run: {formatShortDate(report.nextRun, "Soon")}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={report.onEdit}
+              className="rounded-xl bg-[#cfcfd5] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#c5c5cc]"
+            >
+              Edit
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MiniLinePreview({ values = [], compareValues = [] }) {
+  const primary = buildSeries(values, 7);
+  const secondary = buildSeries(
+    compareValues.length
+      ? compareValues
+      : primary.map((value, index) => Math.max(value - (index % 2 === 0 ? 1 : 0), 1)),
+    7
+  );
+
+  const width = 260;
+  const height = 90;
+  const padding = 8;
+  const highestValue = Math.max(...primary, ...secondary, 1);
+
+  function toPoints(series) {
+    return series
+      .map((value, index) => {
+        const x = padding + (index * (width - padding * 2)) / Math.max(series.length - 1, 1);
+        const y = height - padding - (value / highestValue) * (height - padding * 2);
+        return `${x},${y}`;
+      })
+      .join(" ");
+  }
+
+  const guideLines = [20, 46, 72];
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between gap-3 text-sm">
-        <span className="font-medium text-slate-700">{label}</span>
-        <span className="text-slate-500">
-          {count} · {percentage}%
-        </span>
-      </div>
-      <div className="h-2 rounded-full bg-slate-100">
-        <div
-          className="h-2 rounded-full bg-blue-500 transition-all"
-          style={{ width: `${percentage}%` }}
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-28 w-full">
+      {guideLines.map((line) => (
+        <line
+          key={line}
+          x1={0}
+          x2={width}
+          y1={line}
+          y2={line}
+          stroke="#d9d6dd"
+          strokeDasharray="3 6"
+          strokeWidth="1"
         />
+      ))}
+      <polyline
+        fill="none"
+        stroke="#e8cb78"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        points={toPoints(primary)}
+      />
+      <polyline
+        fill="none"
+        stroke="#b3b1b8"
+        strokeWidth="4.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        points={toPoints(secondary)}
+      />
+      <line x1={0} x2={width} y1={height - 4} y2={height - 4} stroke="#bbb7be" strokeWidth="2.5" />
+    </svg>
+  );
+}
+
+function MiniBarsPreview({ items = [] }) {
+  const visibleItems = items.length
+    ? items
+    : [
+        { label: "Alex", value: 4 },
+        { label: "Mia", value: 3 },
+        { label: "Sam", value: 2 },
+      ];
+  const highestValue = Math.max(...visibleItems.map((item) => item.value), 1);
+
+  return (
+    <div className="space-y-3">
+      {visibleItems.slice(0, 4).map((item) => (
+        <div key={item.label} className="space-y-1.5">
+          <div className="flex items-center justify-between text-xs text-[#a4a0aa]">
+            <span>{item.label}</span>
+            <span>{item.value}</span>
+          </div>
+          <div className="h-4 rounded-full bg-white">
+            <div
+              className="h-4 rounded-full bg-[#b5b4bc]"
+              style={{ width: `${Math.max((item.value / highestValue) * 100, 16)}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MiniStatusPreview({ items = [] }) {
+  const tones = ["bg-[#c4e6df]", "bg-[#dfd7ef]", "bg-[#f0d9d9]", "bg-[#eedfc7]"];
+  const visibleItems = items.length
+    ? items
+    : [
+        { label: "Todo", value: 4 },
+        { label: "Doing", value: 3 },
+        { label: "Done", value: 2 },
+      ];
+  const total = visibleItems.reduce((sum, item) => sum + item.value, 0) || 1;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex h-12 overflow-hidden rounded-[18px] bg-white">
+        {visibleItems.slice(0, 4).map((item, index) => (
+          <div
+            key={item.label}
+            className={tones[index % tones.length]}
+            style={{ width: `${Math.max((item.value / total) * 100, 10)}%` }}
+          />
+        ))}
       </div>
+      <div className="space-y-2">
+        {visibleItems.slice(0, 4).map((item, index) => (
+          <div key={item.label} className="flex items-center justify-between text-xs text-[#a4a0aa]">
+            <span className="inline-flex items-center gap-2">
+              <span className={`h-2.5 w-2.5 rounded-full ${tones[index % tones.length]}`} />
+              {item.label}
+            </span>
+            <span>{item.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MiniTablePreview({ rows = [] }) {
+  const visibleRows = rows.length
+    ? rows
+    : [
+        { key: "TASK-17", owner: "ML", due: "May 8" },
+        { key: "TASK-21", owner: "AR", due: "May 10" },
+        { key: "TASK-34", owner: "PT", due: "May 12" },
+      ];
+
+  return (
+    <div className="overflow-hidden rounded-[18px] border border-[#e3e1e6] bg-white">
+      <div className="grid grid-cols-[1.4fr,0.8fr,0.9fr] gap-2 border-b border-[#efedf1] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#bbb7bf]">
+        <span>Task</span>
+        <span>Owner</span>
+        <span>Due</span>
+      </div>
+      <div className="divide-y divide-[#f0eef2]">
+        {visibleRows.slice(0, 4).map((row) => (
+          <div
+            key={`${row.key}-${row.owner}`}
+            className="grid grid-cols-[1.4fr,0.8fr,0.9fr] gap-2 px-3 py-2.5 text-sm text-[#8e8996]"
+          >
+            <span className="truncate">{row.key}</span>
+            <span>{row.owner}</span>
+            <span>{row.due}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function VisualizationTile({ variant = "line" }) {
+  const sharedCardClass =
+    "rounded-[18px] border bg-white/85 p-3 shadow-[0_12px_28px_-28px_rgba(82,82,91,0.45)]";
+
+  if (variant === "bars") {
+    return (
+      <div className={sharedCardClass}>
+        <div className="flex h-16 items-end gap-2">
+          {[38, 52, 28, 60, 44].map((height, index) => (
+            <span
+              key={height}
+              className={`w-full rounded-t-md ${index % 2 === 0 ? "bg-[#cfd8e8]" : "bg-[#e8dfca]"}`}
+              style={{ height: `${height}px` }}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (variant === "radial") {
+    return (
+      <div className={sharedCardClass}>
+        <div className="flex h-16 items-center justify-center">
+          <div className="h-16 w-16 rounded-full bg-[conic-gradient(#f0d9d9_0_24%,#e8dfca_24%_48%,#d7ebe7_48%_75%,#d9e5f3_75%_100%)] p-3">
+            <div className="h-full w-full rounded-full bg-white" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (variant === "matrix") {
+    return (
+      <div className={sharedCardClass}>
+        <div className="grid h-16 grid-cols-5 gap-1">
+          {Array.from({ length: 20 }).map((_, index) => (
+            <span
+              key={index}
+              className={`rounded-sm ${
+                index % 4 === 0
+                  ? "bg-[#f0d9d9]"
+                  : index % 3 === 0
+                    ? "bg-[#d9e5f3]"
+                    : index % 2 === 0
+                      ? "bg-[#d7ebe7]"
+                      : "bg-[#eedfc7]"
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={sharedCardClass}>
+      <svg viewBox="0 0 140 64" className="h-16 w-full">
+        {[14, 30, 46].map((line) => (
+          <line
+            key={line}
+            x1="0"
+            x2="140"
+            y1={line}
+            y2={line}
+            stroke="#e8e5ea"
+            strokeDasharray="3 6"
+          />
+        ))}
+        <polyline
+          fill="none"
+          stroke="#c5ddd9"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points="2,52 24,42 46,48 68,18 90,35 112,12 138,27"
+        />
+        <polyline
+          fill="none"
+          stroke="#e8dfca"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points="2,28 24,30 46,16 68,24 90,18 112,36 138,20"
+        />
+      </svg>
     </div>
   );
 }
 
 export default function Dashboard() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [pageLoading, setPageLoading] = useState(true);
   const [notice, setNotice] = useState(null);
+  const [workspaceQuery, setWorkspaceQuery] = useState("");
+  const [activeLibraryTab, setActiveLibraryTab] = useState("Pre-built");
 
   const [profile, setProfile] = useState(null);
   const [users, setUsers] = useState([]);
@@ -108,6 +457,7 @@ export default function Dashboard() {
   const [summary, setSummary] = useState(null);
   const [statusBreakdown, setStatusBreakdown] = useState([]);
   const [userBreakdown, setUserBreakdown] = useState([]);
+  const [projectTasks, setProjectTasks] = useState([]);
   const [overdueCount, setOverdueCount] = useState(0);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsError, setInsightsError] = useState("");
@@ -132,6 +482,20 @@ export default function Dashboard() {
 
   function showNotice(tone, message) {
     setNotice({ tone, message });
+  }
+
+  function openCreateProjectDialog() {
+    setProjectDialogMode("create");
+    setIsProjectDialogOpen(true);
+  }
+
+  function openEditProjectDialog() {
+    if (!selectedProject) {
+      return;
+    }
+
+    setProjectDialogMode("edit");
+    setIsProjectDialogOpen(true);
   }
 
   async function loadProfileData() {
@@ -189,8 +553,7 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
-    const nextProject =
-      projects.find((project) => project.id === selectedProjectId) ?? null;
+    const nextProject = projects.find((project) => project.id === selectedProjectId) ?? null;
 
     setSelectedProject(nextProject);
     setStoredSelectedProjectId(nextProject?.id ?? null);
@@ -218,7 +581,10 @@ export default function Dashboard() {
         if (profileResult.status === "fulfilled") {
           setProfile(profileResult.value);
         } else {
-          showNotice("error", getApiErrorMessage(profileResult.reason, "Profile could not be loaded."));
+          showNotice(
+            "error",
+            getApiErrorMessage(profileResult.reason, "Profile could not be loaded.")
+          );
         }
 
         if (usersResult.status === "fulfilled") {
@@ -264,6 +630,7 @@ export default function Dashboard() {
       setSummary(null);
       setStatusBreakdown([]);
       setUserBreakdown([]);
+      setProjectTasks([]);
       setOverdueCount(0);
       setInsightsError("");
       setInsightsLoading(false);
@@ -282,6 +649,7 @@ export default function Dashboard() {
           statusData,
           userData,
           overdueData,
+          taskData,
         ] = await Promise.all([
           getProjectDetails(selectedProjectId),
           getProjectMembers(selectedProjectId),
@@ -289,6 +657,7 @@ export default function Dashboard() {
           getDashboardStatusBreakdown(selectedProjectId),
           getDashboardUserBreakdown(selectedProjectId),
           getDashboardOverdue(selectedProjectId),
+          getTasksByProject(selectedProjectId),
         ]);
 
         if (!ignore) {
@@ -299,6 +668,7 @@ export default function Dashboard() {
           setSummary(summaryData);
           setStatusBreakdown(Array.isArray(statusData) ? statusData : []);
           setUserBreakdown(Array.isArray(userData) ? userData : []);
+          setProjectTasks(Array.isArray(taskData) ? taskData : []);
           setOverdueCount(Number(overdueData?.count) || 0);
         }
       } catch (error) {
@@ -355,7 +725,7 @@ export default function Dashboard() {
           setInsightRefreshKey((current) => current + 1);
         });
       } catch {
-        // Realtime is best-effort. The HTTP APIs remain the source of truth.
+        // Realtime is best-effort. HTTP APIs remain the source of truth.
       }
     }
 
@@ -501,6 +871,14 @@ export default function Dashboard() {
     showNotice("success", "Workspace refreshed.");
   }
 
+  function handleExportWorkspace() {
+    showNotice("info", "Export actions are not wired yet, but the dashboard layout is ready for them.");
+  }
+
+  function handlePinSelection() {
+    showNotice("info", "Pinning is not wired yet, so I kept the control as a design placeholder.");
+  }
+
   async function handleRemoveProjectMember(userId) {
     if (!selectedProjectId) {
       return;
@@ -538,24 +916,119 @@ export default function Dashboard() {
     }
   }
 
-  const navItems = [
-    { icon: Home, label: "Overview", active: true },
-    { icon: FolderKanban, label: "Projects" },
-    { icon: Users, label: "Team" },
-    { icon: BarChart3, label: "Reports" },
-  ];
-
   const noticeClasses =
     notice?.tone === "error"
-      ? "border-red-200 bg-red-50 text-red-700"
+      ? "border-[#edcfce] bg-[#fbefed] text-[#b66f71]"
       : notice?.tone === "info"
-        ? "border-blue-200 bg-blue-50 text-blue-700"
-        : "border-emerald-200 bg-emerald-50 text-emerald-700";
+        ? "border-[#d8e2f2] bg-[#edf3fb] text-[#6e89ab]"
+        : "border-[#d7e8df] bg-[#edf6f1] text-[#698f7e]";
+
+  const totalTasks = Number(summary?.totalTasks) || projectTasks.length;
+  const completedTasks = Number(summary?.completedTasks) || 0;
+  const pendingTasks = Number(summary?.pendingTasks) || Math.max(totalTasks - completedTasks, 0);
+  const completionRate = totalTasks ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const onTimeRate = totalTasks ? Math.max(0, Math.round(((totalTasks - overdueCount) / totalTasks) * 100)) : 0;
+  const assignedTaskCount = userBreakdown.reduce((sum, user) => sum + (Number(user.count) || 0), 0);
+  const utilizationRate = totalTasks ? Math.min(100, Math.round((assignedTaskCount / totalTasks) * 100)) : 0;
+  const memberCount = projectDetails?.members?.length ?? 0;
+  const healthState = !selectedProject
+    ? "Idle"
+    : insightsError
+      ? "Attention"
+      : overdueCount > 0
+        ? "Watch"
+        : "Stable";
+  const healthTone = insightsError ? "rose" : overdueCount > 0 ? "warm" : "neutral";
+
+  const statusSeries = buildSeries(statusBreakdown.map((status) => status.count), 7);
+  const workloadItems =
+    userBreakdown.length > 0
+      ? userBreakdown.map((user) => ({
+          label: user.userName,
+          value: Number(user.count) || 0,
+        }))
+      : (projectDetails?.members ?? []).map((member) => ({
+          label: member.userName,
+          value: Number(member.taskCount) || 0,
+        }));
+  const recentTaskRows = projectTasks.slice(0, 4).map((task) => ({
+    key: task.title || `Task ${task.id}`,
+    owner: getInitials(task.assignedUserName),
+    due: formatShortDate(task.dueDate, "Open"),
+  }));
+  const previewStatusItems =
+    statusBreakdown.length > 0
+      ? statusBreakdown.map((status) => ({
+          label: status.statusName,
+          value: Number(status.count) || 0,
+        }))
+      : [
+          { label: "Pending", value: pendingTasks },
+          { label: "Completed", value: completedTasks },
+          { label: "Overdue", value: overdueCount },
+        ];
+
+  const highlightCards = [
+    {
+      eyebrow: "Project progress",
+      title: selectedProject?.name ? `${selectedProject.name} rollout` : "Portfolio overview",
+      badges: ["Pin", "Share"],
+      preview: (
+        <MiniLinePreview
+          values={statusSeries}
+          compareValues={statusSeries.map((value, index) => Math.max(value - (index % 2 === 0 ? 1 : 0), 1))}
+        />
+      ),
+      footer: `Owner: ${profile?.name || "Workspace owner"} / Updated: ${formatShortDate(
+        projectTasks[0]?.updatedAt || projectDetails?.createdAt,
+        "Recently"
+      )}`,
+    },
+    {
+      eyebrow: "Resource utilization",
+      title: memberCount > 0 ? `${memberCount}-person delivery team` : "Assignee workload",
+      badges: ["Pin", "Share"],
+      preview: <MiniBarsPreview items={workloadItems} />,
+      footer: `${assignedTaskCount} assigned task${assignedTaskCount === 1 ? "" : "s"} flowing through the project`,
+    },
+    {
+      eyebrow: "Sprint burn-down",
+      title: "Delivery momentum",
+      badges: ["Pin", "Share"],
+      preview: <MiniStatusPreview items={previewStatusItems} />,
+      footer: `On-time rate: ${onTimeRate}% / Open risks: ${overdueCount}`,
+    },
+    {
+      eyebrow: "Time tracking",
+      title: "Weekly summary",
+      badges: ["Pin", "Share"],
+      preview: <MiniTablePreview rows={recentTaskRows} />,
+      footer: `Recent tasks across ${selectedProject?.name || "the selected workspace"}`,
+    },
+  ];
+
+  const scheduledReports = [
+    {
+      name: "Weekly Executive Summary",
+      nextRun: addDays(new Date(), 1),
+      onEdit: openEditProjectDialog,
+    },
+    {
+      name: "Resource Utilization Digest",
+      nextRun: addDays(new Date(), 3),
+      onEdit: () => setIsTaskDialogOpen(true),
+    },
+    {
+      name: "Client Snapshot",
+      nextRun: addDays(new Date(), 7),
+      onEdit: handleRefreshWorkspace,
+    },
+  ];
 
   if (pageLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f7f8fc] text-slate-600">
-        <div className="flex items-center gap-3 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+      <div className="flex min-h-screen items-center justify-center  px-4 text-[#7b7883]">
+        <div className="flex items-center gap-3 rounded-[28px] border border-[#dedbe2] bg-white px-5 py-4 shadow-[0_18px_40px_-34px_rgba(82,82,91,0.45)]">
           <Loader2 className="h-5 w-5 animate-spin" />
           Loading your workspace...
         </div>
@@ -564,119 +1037,71 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#eef2f7] text-slate-900">
-      <aside
-        className={`${
-          sidebarOpen ? "w-72" : "w-0"
-        } overflow-hidden border-r border-yellow-600 bg-black text-white transition-all duration-300`}
-      >
-        <div className="flex h-full flex-col">
-          <div className="border-b border-white/10 px-6 py-6">
-            <div className="flex items-center gap-3">
-              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-500 text-lg font-bold text-slate-950">
-                CH
-              </div>
-              <div>
-                <p className="text-lg font-semibold">CollabHub</p>
-                <p className="text-sm text-slate-400">API-connected workspace</p>
-              </div>
-            </div>
-          </div>
-
-          <nav className="flex-1 space-y-2 px-4 py-6">
-            {navItems.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium transition ${
-                  item.active
-                    ? "bg-white text-slate-950 shadow-lg shadow-slate-900/20"
-                    : "text-slate-300 hover:bg-white/5 hover:text-white"
-                }`}
-              >
-                <item.icon className="h-5 w-5" />
-                {item.label}
-              </button>
-            ))}
-          </nav>
-
-          <div className="border-t border-white/10 px-4 py-4">
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-300 transition hover:bg-red-500/10 hover:text-red-300"
-            >
-              <LogOut className="h-5 w-5" />
-              Logout
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="border-b border-slate-200 bg-white/90 px-6 py-5 backdrop-blur">
+    <div className="min-h-screen text-[#686570]">
+      <div className="mx-auto flex flex-col overflow-hidden border border-[#d7d4da] bg-[#f6f5f2]">
+        <header className="border-b border-[#cfccd3] bg-[#b9b7bc] px-5 py-4 text-white/90 lg:px-6">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex items-start gap-3">
-              <button
-                type="button"
-                onClick={() => setSidebarOpen((current) => !current)}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900"
-              >
-                {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-              </button>
-
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  Delivery workspace
-                </p>
-                <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
-                  Frontend mapped to the backend APIs
-                </h1>
-                <p className="mt-1 text-sm text-slate-500">
-                  Project, task, dashboard, auth, and notification flows are all wired to the backend.
-                </p>
+            <div className="flex flex-1 flex-col gap-4 lg:flex-row lg:items-center">
+              <div className="flex items-center gap-3">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white/12 text-white">
+                  <Layers3 className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-lg font-semibold tracking-tight">CollabHub</p>
+                  <p className="text-xs uppercase tracking-[0.18em] text-white/70">
+                    Reporting workspace
+                  </p>
+                </div>
               </div>
+
+              <label className="relative lg:ml-5 lg:max-w-[460px] lg:flex-1">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
+                <input
+                  type="search"
+                  value={workspaceQuery}
+                  onChange={(event) => setWorkspaceQuery(event.target.value)}
+                  placeholder="Search reports, projects, people"
+                  className="w-full rounded-2xl border border-white/10 bg-white/60 py-3 pl-11 pr-4 text-sm text-[#6f6b75] outline-none transition placeholder:text-[#c5c2c8] focus:border-white/30 focus:bg-white/80 focus:ring-4 focus:ring-white/20"
+                />
+              </label>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <ProjectSelector
-                value={selectedProjectId}
-                onSelect={(projectId) => setSelectedProjectId(projectId)}
-                projects={projects}
-                loading={projectsLoading}
-                error={projectError}
-                onRetry={() => loadProjectsData(selectedProjectId)}
-              />
-
-              <button
-                type="button"
-                onClick={() => {
-                  setProjectDialogMode("create");
-                  setIsProjectDialogOpen(true);
-                }}
-                className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
-              >
-                <Plus className="h-4 w-4" />
-                New project
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsTaskDialogOpen(true)}
-                disabled={!selectedProjectId}
-                className="inline-flex items-center gap-2 rounded-2xl bg-yellow-500 px-4 py-3 text-sm font-medium text-slate-950 shadow-sm transition hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Layers3 className="h-4 w-4" />
-                New task
-              </button>
+            <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+              {[
+                {
+                  label: "Create Report",
+                  onClick: () => setIsTaskDialogOpen(true),
+                  disabled: !selectedProjectId,
+                },
+                {
+                  label: "Export",
+                  onClick: handleExportWorkspace,
+                  disabled: false,
+                },
+                {
+                  label: "Schedule",
+                  onClick: openEditProjectDialog,
+                  disabled: !selectedProject,
+                },
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={item.onClick}
+                  disabled={item.disabled}
+                  className="rounded-full px-4 py-2 text-sm text-white/88 transition hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {item.label}
+                </button>
+              ))}
 
               <button
                 type="button"
                 onClick={handleRefreshWorkspace}
-                className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-white/90 transition hover:bg-white/12"
+                title="Refresh workspace"
               >
                 <RefreshCw className="h-4 w-4" />
-                Refresh
               </button>
 
               <NotificationBell
@@ -689,308 +1114,323 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={() => setIsProfileOpen(true)}
-                className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm transition hover:border-slate-300"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/85 text-sm font-semibold text-[#8b8794] shadow-sm transition hover:bg-white"
+                title={profile?.name || "Profile"}
               >
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-sm font-semibold text-white">
-                  {getInitials(profile?.name)}
-                </span>
-                <span className="hidden text-left sm:block">
-                  <span className="block text-sm font-medium text-slate-900">
-                    {profile?.name || "Your account"}
-                  </span>
-                  <span className="block text-xs text-slate-500">{profile?.email || "No email"}</span>
-                </span>
+                {getInitials(profile?.name)}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-white/65 transition hover:bg-white/12 hover:text-white"
+                title="Logout"
+              >
+                <LogOut className="h-4 w-4" />
               </button>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
+        <main className="flex-1 overflow-y-auto px-5 py-6 lg:px-8 lg:py-8">
           {notice && (
-            <div className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm ${noticeClasses}`}>
+            <div className={`mb-6 flex items-center justify-between gap-3 rounded-[24px] border px-4 py-3 text-sm ${noticeClasses}`}>
               <span>{notice.message}</span>
               <button
                 type="button"
                 onClick={() => setNotice(null)}
-                className="rounded-full bg-white/70 px-2 py-1 text-xs font-medium text-current"
+                className="rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-current"
               >
                 Dismiss
               </button>
             </div>
           )}
 
-          <section className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-4">
-            <SummaryCard
-              label="Total Tasks"
-              value={summary?.totalTasks ?? 0}
-              helper="Live summary from `/api/dashboard/summary`"
-              tone="slate"
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-[repeat(5,minmax(0,1fr))_1.3fr]">
+            <WorkspaceMetric
+              icon={Sparkles}
+              label="Project Health"
+              value={healthState}
+              helper={selectedProject?.name || "Pick a project to begin"}
+              tone={healthTone}
             />
-            <SummaryCard
-              label="Completed"
-              value={summary?.completedTasks ?? 0}
-              helper="Tasks in final statuses"
-              tone="emerald"
+            <WorkspaceMetric
+              icon={CheckCircle2}
+              label="On-time %"
+              value={`${onTimeRate}%`}
+              helper={`Compared to ${completionRate}% completed work`}
+              tone="warm"
             />
-            <SummaryCard
-              label="Pending"
-              value={summary?.pendingTasks ?? 0}
-              helper="Work still in progress"
-              tone="blue"
+            <WorkspaceMetric
+              icon={Users}
+              label="Resource Utilization"
+              value={`${utilizationRate}%`}
+              helper={memberCount > 0 ? `${memberCount} active members in the project` : "Team usage appears here"}
+              tone="mint"
             />
-            <SummaryCard
-              label="Overdue"
+            <WorkspaceMetric
+              icon={FolderKanban}
+              label="Active Tasks"
+              value={pendingTasks}
+              helper={`${totalTasks} total tasks on the selected board`}
+              tone="sky"
+            />
+            <WorkspaceMetric
+              icon={AlertTriangle}
+              label="Open Risks"
               value={overdueCount}
-              helper="Confirmed by `/api/dashboard/overdue`"
-              tone="amber"
+              helper={overdueCount > 0 ? "Critical work needs attention" : "No overdue work detected"}
+              tone="rose"
             />
+            <ScheduledReportsPanel reports={scheduledReports} loading={insightsLoading} />
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-[1.2fr,0.8fr]">
-            <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                    Project overview
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
-                    {selectedProject?.name || "Select a project"}
-                  </h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                    {selectedProject?.description ||
-                      "Choose a project to load project details, members, summary metrics, and the board."}
-                  </p>
+          <section className="mt-6 rounded-[30px] border border-[#dfdce2] bg-white/70 px-4 py-4 shadow-[0_18px_40px_-34px_rgba(82,82,91,0.45)]">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
+                <div className="flex flex-wrap gap-2">
+                  {["Pre-built", "Custom", "Dashboards"].map((tab) => {
+                    const isActive = activeLibraryTab === tab;
+
+                    return (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setActiveLibraryTab(tab)}
+                        className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
+                          isActive
+                            ? "bg-[#cfcfd5] text-white shadow-sm"
+                            : "bg-transparent text-[#b1aeb7] hover:bg-[#f3f2f0]"
+                        }`}
+                      >
+                        {tab}
+                      </button>
+                    );
+                  })}
                 </div>
 
-                <div className="flex flex-wrap gap-3">
+                <div className="flex items-center gap-2 xl:ml-4">
+                  <ProjectSelector
+                    value={selectedProjectId}
+                    onSelect={(projectId) => setSelectedProjectId(projectId)}
+                    projects={projects}
+                    loading={projectsLoading}
+                    error={projectError}
+                    onRetry={() => loadProjectsData(selectedProjectId)}
+                  />
                   <button
                     type="button"
-                    onClick={() => {
-                      if (!selectedProject) {
-                        return;
-                      }
-
-                      setProjectDialogMode("edit");
-                      setIsProjectDialogOpen(true);
-                    }}
-                    disabled={!selectedProject}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={openCreateProjectDialog}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f3f2f0] text-[#a9a5af] transition hover:bg-[#ece9ef] hover:text-[#7d7783]"
+                    title="Create project"
                   >
-                    <Settings2 className="h-4 w-4" />
-                    Edit project
+                    <Plus className="h-4 w-4" />
                   </button>
+                </div>
+
+                <div className="text-sm text-[#c1bec5]">
+                  Data Source: {selectedProject?.name || "All Projects"} / Filter by task, owner
                 </div>
               </div>
 
-              {insightsError && (
-                <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {insightsError}
-                </div>
-              )}
-
-              {insightsLoading ? (
-                <div className="mt-6 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-600">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading project insights...
-                </div>
-              ) : selectedProject ? (
-                <>
-                  <div className="mt-6 grid gap-4 md:grid-cols-3">
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Workflow</p>
-                      <p className="mt-1 text-sm font-medium text-slate-800">
-                        {projectDetails?.workflowName || "Not available"}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Created</p>
-                      <p className="mt-1 text-sm font-medium text-slate-800">
-                        {formatDateTime(projectDetails?.createdAt)}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Members</p>
-                      <p className="mt-1 text-sm font-medium text-slate-800">
-                        {projectDetails?.members?.length ?? 0} active members
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 grid gap-6 lg:grid-cols-2">
-                    <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
-                      <p className="text-sm font-semibold text-slate-900">Status distribution</p>
-                      <div className="mt-4 space-y-4">
-                        {statusBreakdown.length === 0 ? (
-                          <p className="text-sm text-slate-500">No status data yet for this project.</p>
-                        ) : (
-                          statusBreakdown.map((status) => (
-                            <StatusBar
-                              key={status.statusName}
-                              label={status.statusName}
-                              count={status.count}
-                              total={summary?.totalTasks ?? 0}
-                            />
-                          ))
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
-                      <p className="text-sm font-semibold text-slate-900">Assignee workload</p>
-                      <div className="mt-4 space-y-3">
-                        {userBreakdown.length === 0 ? (
-                          <p className="text-sm text-slate-500">No user workload has been recorded yet.</p>
-                        ) : (
-                          userBreakdown.map((user) => (
-                            <div
-                              key={user.userName}
-                              className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3"
-                            >
-                              <span className="text-sm font-medium text-slate-700">{user.userName}</span>
-                              <span className="rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white">
-                                {user.count}
-                              </span>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="mt-6 rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-                  Project insights appear here once a project is selected.
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-6">
-              <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="inline-flex h-11 w-11 items-center justify-center rounded-3xl bg-yellow-50 text-yellow-600">
-                    <Users className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Project members</p>
-                    <p className="text-sm text-slate-500">
-                      Members are inferred by the backend from assigned tasks.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5 space-y-3">
-                  {projectDetails?.members?.length ? (
-                    projectDetails.members.map((member) => (
-                      <div
-                        key={member.userId}
-                        className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold text-slate-900">{member.userName}</p>
-                            <p className="text-sm text-slate-500">{member.email}</p>
-                            <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-400">
-                              {member.taskCount} assigned task{member.taskCount === 1 ? "" : "s"}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveProjectMember(member.userId)}
-                            className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                      No project members yet. Assign tasks to tenant users to populate this list.
-                    </div>
-                  )}
-                </div>
-              </section>
-
-              <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="inline-flex h-11 w-11 items-center justify-center rounded-3xl bg-violet-50 text-violet-600">
-                    <UserCircle2 className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Tenant users</p>
-                    <p className="text-sm text-slate-500">
-                      Available assignees returned by `/api/auth/users`.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5 space-y-3">
-                  {usersLoading ? (
-                    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-600">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading users...
-                    </div>
-                  ) : users.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                      No active users were returned for this tenant.
-                    </div>
-                  ) : (
-                    users.map((user) => (
-                      <div
-                        key={user.id}
-                        className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
-                      >
-                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-sm font-semibold text-white">
-                          {getInitials(user.name)}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-slate-900">{user.name}</p>
-                          <p className="truncate text-sm text-slate-500">{user.email}</p>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </section>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleRefreshWorkspace}
+                  className="rounded-2xl bg-[#cfcfd5] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#c5c5cc]"
+                >
+                  Apply
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsTaskDialogOpen(true)}
+                  disabled={!selectedProjectId}
+                  className="rounded-2xl bg-[#cfcfd5] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#c5c5cc] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  New Report
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePinSelection}
+                  className="rounded-2xl bg-[#cfcfd5] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#c5c5cc] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Pin Selected
+                </button>
+              </div>
             </div>
           </section>
 
-          {!selectedProjectId && projects.length === 0 && (
-            <div className="rounded-[30px] border border-dashed border-slate-300 bg-white px-6 py-8 text-center shadow-sm">
+          {!selectedProjectId && projects.length === 0 ? (
+            <section className="mt-6 rounded-[30px] border border-dashed border-[#dbd8de] bg-white/65 px-6 py-12 text-center shadow-[0_18px_40px_-34px_rgba(82,82,91,0.45)]">
               <div className="mx-auto max-w-2xl">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#b8b4bd]">
                   Workspace empty
                 </p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-[#706b76]">
                   Start by creating your first project
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  The backend is ready with project, task, dashboard, and notification APIs. Creating a
-                  project unlocks the rest of the board flows.
+                <p className="mt-3 text-sm leading-7 text-[#aaa6b0]">
+                  The backend is already wired up for projects, tasks, dashboard insights, and realtime
+                  notifications. Once a project exists, the rest of this workspace will populate.
                 </p>
                 <button
                   type="button"
-                  onClick={() => {
-                    setProjectDialogMode("create");
-                    setIsProjectDialogOpen(true);
-                  }}
-                  className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
+                  onClick={openCreateProjectDialog}
+                  className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#cfcfd5] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#c5c5cc]"
                 >
                   <Plus className="h-4 w-4" />
                   Create project
                 </button>
               </div>
-            </div>
-          )}
+            </section>
+          ) : (
+            <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_260px]">
+              <div className="space-y-6">
+                {insightsError && (
+                  <div className="rounded-[24px] border border-[#edd4d5] bg-[#fbefed] px-4 py-3 text-sm text-[#b96f71]">
+                    {insightsError}
+                  </div>
+                )}
 
-          <KanbanBoard
-            projectId={selectedProjectId}
-            selectedProject={selectedProject}
-            refreshToken={boardRefreshKey}
-            onCreateTask={() => setIsTaskDialogOpen(true)}
-            onTaskOpen={(task) => setActiveTaskId(task.id)}
-            onTaskMoved={handleTaskMoved}
-          />
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  {highlightCards.map((card) => (
+                    <InsightCard
+                      key={card.eyebrow}
+                      eyebrow={card.eyebrow}
+                      title={card.title}
+                      preview={card.preview}
+                      footer={card.footer}
+                      badges={card.badges}
+                    />
+                  ))}
+                </div>
+
+                <KanbanBoard
+                  projectId={selectedProjectId}
+                  selectedProject={selectedProject}
+                  refreshToken={boardRefreshKey}
+                  onCreateTask={() => setIsTaskDialogOpen(true)}
+                  onTaskOpen={(task) => setActiveTaskId(task.id)}
+                  onTaskMoved={handleTaskMoved}
+                  workspaceQuery={workspaceQuery}
+                />
+
+                <section className="rounded-[28px] border border-[#e1dee3] bg-white/76 p-5 shadow-[0_18px_40px_-34px_rgba(82,82,91,0.45)]">
+                  <div className="flex items-center gap-3">
+                    <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#ece8f2] text-[#8d7da4]">
+                      <UserCircle2 className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-[#8f8a98]">Project members</p>
+                      <p className="text-xs text-[#c0bcc4]">Visible assignees for the active workspace</p>
+                    </div>
+                    {usersLoading && <Loader2 className="ml-auto h-4 w-4 animate-spin text-[#bbb7bf]" />}
+                  </div>
+
+                  <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {projectDetails?.members?.length ? (
+                      projectDetails.members.map((member) => (
+                        <div
+                          key={member.userId}
+                          className="flex items-center justify-between gap-3 rounded-2xl bg-[#f4f3f0] px-3 py-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-[#8f8a98]">
+                              {member.userName}
+                            </p>
+                            <p className="truncate text-xs text-[#bbb7bf]">{member.email}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveProjectMember(member.userId)}
+                            className="rounded-full border border-[#edcfce] bg-white px-3 py-1.5 text-xs font-medium text-[#b96f71] transition hover:bg-[#fbefed]"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-2xl bg-[#f4f3f0] px-4 py-8 text-center text-sm text-[#b3aeba] md:col-span-2 xl:col-span-3">
+                        No project members yet. Assign tasks to users to populate this list.
+                      </div>
+                    )}
+                  </div>
+                </section>
+              </div>
+
+              <div className="space-y-5">
+                <section className="rounded-[28px] border border-[#e1dee3] bg-white/80 p-5 shadow-[0_18px_40px_-34px_rgba(82,82,91,0.45)]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#bbb7bf]">
+                    Visualization Gallery
+                  </p>
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <VisualizationTile variant="line" />
+                    <VisualizationTile variant="bars" />
+                    <VisualizationTile variant="radial" />
+                    <VisualizationTile variant="matrix" />
+                  </div>
+                </section>
+
+                <section className="rounded-[28px] border border-[#e1dee3] bg-white/80 p-5 shadow-[0_18px_40px_-34px_rgba(82,82,91,0.45)]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#bbb7bf]">
+                    Quick Templates
+                  </p>
+                  <div className="mt-4 space-y-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsTaskDialogOpen(true)}
+                      disabled={!selectedProjectId}
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#cfcfd5] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#c5c5cc] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                      Sprint Summary
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openEditProjectDialog}
+                      disabled={!selectedProject}
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#cfcfd5] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#c5c5cc] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Settings2 className="h-4 w-4" />
+                      Utilization Overview
+                    </button>
+                  </div>
+                </section>
+
+                <section className="rounded-[28px] border border-[#e1dee3] bg-white/80 p-5 shadow-[0_18px_40px_-34px_rgba(82,82,91,0.45)]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#bbb7bf]">
+                    Workspace Actions
+                  </p>
+                  <div className="mt-4 space-y-3">
+                    <button
+                      type="button"
+                      onClick={openCreateProjectDialog}
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#f3f2f0] px-4 py-3 text-sm font-medium text-[#8f8a98] transition hover:bg-[#ece9ef]"
+                    >
+                      <FolderKanban className="h-4 w-4" />
+                      Create Project
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRefreshWorkspace}
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#f3f2f0] px-4 py-3 text-sm font-medium text-[#8f8a98] transition hover:bg-[#ece9ef]"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Refresh Workspace
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#f3f2f0] px-4 py-3 text-sm font-medium text-[#8f8a98] transition hover:bg-[#ece9ef]"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Sign Out
+                    </button>
+                  </div>
+                </section>
+              </div>
+            </section>
+          )}
         </main>
       </div>
 

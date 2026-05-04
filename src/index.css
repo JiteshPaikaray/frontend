@@ -3,11 +3,11 @@
 @tailwind utilities;
 
 :root {
-  font-family: "Segoe UI", "Trebuchet MS", "Helvetica Neue", sans-serif;
+  font-family: "Aptos", "Segoe UI", "Trebuchet MS", "Helvetica Neue", sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #172b4d;
-  background: #f7f8fc;
+  color: #67646f;
+  background: #ecebed;
   color-scheme: light;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -31,9 +31,9 @@ body,
 body {
   min-width: 320px;
   background:
-    radial-gradient(circle at top left, rgba(96, 165, 250, 0.08), transparent 30%),
-    linear-gradient(180deg, #fbfcff 0%, #f5f7fb 100%);
-  color: #172b4d;
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.55), transparent 30%),
+    linear-gradient(180deg, #ebe9ed 0%, #e7e5ea 45%, #f0eff2 100%);
+  color: #67646f;
 }
 
 a {

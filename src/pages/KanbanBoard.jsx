@@ -1,8 +1,7 @@
-import { createElement, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
-  ChevronRight,
   LayoutGrid,
   Loader2,
   Plus,
@@ -11,14 +10,23 @@ import {
   Sparkles,
   UserCheck2,
 } from "lucide-react";
-import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
 import Column from "../components/Column";
 import { TaskCardOverlay } from "../components/TaskCard";
 import { moveTask, getTasksByProject } from "../services/taskService";
 import { getStatuses } from "../services/statusService";
-import { getProjectKey, getTaskKey, getPriorityLevel, isTaskOverdue } from "../utils/kanban";
-
-const BOARD_TABS = ["Summary", "List", "Board", "Calendar", "Timeline"];
+import {
+  getPriorityLevel,
+  getProjectKey,
+  getTaskKey,
+  isTaskOverdue,
+} from "../utils/kanban";
 
 const FILTER_LABELS = {
   all: "All issues",
@@ -39,19 +47,19 @@ function isDoneLikeStatus(statusName = "") {
 
 function LoadingBoardSkeleton() {
   return (
-    <div className="rounded-[28px] border border-slate-200 bg-[#f7f8fc] p-4 shadow-sm">
+    <div className="rounded-[28px] border border-[#ddd9e2] bg-[#efecee] p-4">
       <div className="flex gap-4 overflow-hidden">
-        {[...Array(4)].map((_, columnIndex) => (
+        {[...Array(3)].map((_, columnIndex) => (
           <div
             key={columnIndex}
-            className="min-w-[320px] flex-1 rounded-3xl border border-slate-200 bg-slate-100 p-4"
+            className="min-w-[300px] flex-1 rounded-[26px] border border-[#e1dee3] bg-white/80 p-4"
           >
-            <div className="mb-4 h-10 rounded-2xl bg-slate-200/80" />
+            <div className="mb-4 h-10 rounded-2xl bg-[#ece9ef]" />
             <div className="space-y-3">
               {[...Array(3)].map((__, cardIndex) => (
                 <div
                   key={cardIndex}
-                  className="h-36 rounded-2xl border border-slate-200 bg-white shadow-sm"
+                  className="h-40 rounded-[24px] border border-[#ece8ed] bg-[#f8f7f5]"
                 />
               ))}
             </div>
@@ -62,27 +70,23 @@ function LoadingBoardSkeleton() {
   );
 }
 
-function MetricCard({ icon, label, value, tone = "blue", helper }) {
+function BoardStatPill({ icon, label, value, tone = "neutral" }) {
   const toneClasses = {
-    blue: "bg-yellow-50 text-yellow-600 ring-yellow-100",
-    emerald: "bg-green-50 text-green-700 ring-green-100",
-    amber: "bg-amber-50 text-amber-700 ring-amber-100",
-    violet: "bg-purple-50 text-purple-700 ring-purple-100",
+    neutral: "bg-[#efeeeb] text-[#8f8a98]",
+    mint: "bg-[#e9f3ef] text-[#789b8f]",
+    warm: "bg-[#f5efe4] text-[#b1874a]",
+    rose: "bg-[#f9edeb] text-[#ba787a]",
   };
+  const Icon = icon;
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
-          <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">{value}</p>
-          <p className="mt-1 text-sm text-slate-500">{helper}</p>
-        </div>
-        <span
-          className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl ring-1 ${toneClasses[tone]}`}
-        >
-          {createElement(icon, { className: "h-5 w-5" })}
-        </span>
+    <div className={`inline-flex items-center gap-3 rounded-2xl px-4 py-3 ${toneClasses[tone]}`}>
+      <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/80">
+        <Icon className="h-4 w-4" />
+      </span>
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-75">{label}</p>
+        <p className="text-sm font-medium">{value}</p>
       </div>
     </div>
   );
@@ -95,6 +99,7 @@ export default function KanbanBoard({
   onTaskOpen,
   onCreateTask,
   onTaskMoved,
+  workspaceQuery = "",
 }) {
   const [tasks, setTasks] = useState([]);
   const [statuses, setStatuses] = useState([]);
@@ -224,7 +229,9 @@ export default function KanbanBoard({
   }
 
   const projectKey = getProjectKey(selectedProject);
-  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const internalQuery = searchQuery.trim().toLowerCase();
+  const externalQuery = workspaceQuery.trim().toLowerCase();
+  const activeQueries = [externalQuery, internalQuery].filter(Boolean);
   const doneStatusIds = new Set(
     statuses.filter((status) => isDoneLikeStatus(status.name)).map((status) => status.id)
   );
@@ -249,11 +256,19 @@ export default function KanbanBoard({
   ];
 
   const visibleTasks = tasks.filter((task) => {
+    const haystack = [
+      task.title,
+      task.description,
+      task.assignedUserName,
+      task.priority,
+      getTaskKey(task, projectKey),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
     const matchesQuery =
-      !normalizedQuery ||
-      [task.title, task.description, task.assignedUserName, task.priority, getTaskKey(task, projectKey)]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(normalizedQuery));
+      activeQueries.length === 0 || activeQueries.every((token) => haystack.includes(token));
 
     const matchesFilter =
       activeFilter === "all" ||
@@ -273,40 +288,32 @@ export default function KanbanBoard({
   ).length;
   const assignedCount = tasks.filter((task) => Boolean(task.assignedUserName)).length;
   const completionRate = totalTasks ? Math.round((doneCount / totalTasks) * 100) : 0;
-  const hasActiveFilters = normalizedQuery.length > 0 || activeFilter !== "all";
-  const boardTitle = selectedProject?.name ? `${selectedProject.name} board` : "Kanban board";
+  const hasActiveFilters = activeQueries.length > 0 || activeFilter !== "all";
   const selectedFilter = filterOptions.find((option) => option.id === activeFilter) ?? filterOptions[0];
 
   return (
-    <div className="min-h-full bg-[#f7f8fc] text-slate-900">
-      <section className="border-b border-slate-200 bg-white/90 px-6 py-6 backdrop-blur">
-        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-          <span>Projects</span>
-          <ChevronRight className="h-3.5 w-3.5" />
-          <span>{selectedProject?.name ?? "Select a project"}</span>
-          <ChevronRight className="h-3.5 w-3.5" />
-          <span className="text-slate-700">Board</span>
-        </div>
-
-        <div className="mt-4 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-yellow-500 to-amber-500 text-white shadow-lg shadow-yellow-200/60">
-              <LayoutGrid className="h-6 w-6" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-slate-900">{boardTitle}</h1>
-              <p className="mt-1 max-w-3xl text-sm text-slate-600">
-                Search, filter, and drag tasks across workflow lanes backed by the status and task APIs.
-              </p>
-            </div>
+    <section className="rounded-[30px] border border-[#dfdce2] bg-[#f1efed] p-4 shadow-[0_18px_40px_-34px_rgba(82,82,91,0.45)]">
+      <div className="rounded-[28px] border border-[#e3e0e5] bg-white/80 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#b8b4bd]">
+              Live Workflow
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#6f6a75]">
+              {selectedProject?.name || "Workflow board"}
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#a9a5af]">
+              Search, filter, and drag tasks across workflow lanes without leaving the reporting
+              workspace.
+            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={onCreateTask}
               disabled={!projectId}
-              className="inline-flex items-center gap-2 rounded-xl bg-yellow-500 px-4 py-2 text-sm font-medium text-slate-950 shadow-sm transition hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-2xl bg-[#cfcfd5] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#c5c5cc] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Plus className="h-4 w-4" />
               Create task
@@ -315,243 +322,179 @@ export default function KanbanBoard({
               type="button"
               onClick={handleRefreshBoard}
               disabled={!projectId || isLoading}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-2xl border border-[#e1dee3] bg-white px-4 py-2.5 text-sm font-medium text-[#8f8a98] transition hover:bg-[#f7f6f4] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
               Refresh
             </button>
-            <span className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-black px-4 py-2 text-sm font-medium text-white shadow-sm">
-              <Sparkles className="h-4 w-4" />
-              Kanban view
-            </span>
           </div>
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-2">
-          {BOARD_TABS.map((tab) => {
-            const isActive = tab === "Board";
+        <div className="mt-5 flex flex-col gap-4 2xl:flex-row 2xl:items-center 2xl:justify-between">
+          <div className="flex flex-1 flex-col gap-4 xl:flex-row xl:items-center">
+            <label className="relative w-full xl:max-w-[420px]">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#c0bcc4]" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search by summary, assignee, priority, or issue key"
+                className="w-full rounded-2xl border border-[#e1dee3] bg-[#fbfaf8] py-3 pl-11 pr-4 text-sm text-[#8f8a98] outline-none transition placeholder:text-[#c0bcc4] focus:border-[#d0ced4] focus:ring-4 focus:ring-[#ece9ef]"
+              />
+            </label>
 
-            return (
-              <button
-                key={tab}
-                type="button"
-                disabled={!isActive}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                  isActive
-                    ? "bg-yellow-500 text-slate-950 shadow-sm"
-                    : "border border-slate-200 bg-slate-100 text-slate-500"
-                }`}
-              >
-                {tab}
-              </button>
-            );
-          })}
-        </div>
-      </section>
+            <div className="flex flex-wrap gap-2">
+              {filterOptions.map((filter) => {
+                const isActive = activeFilter === filter.id;
 
-      <div className="space-y-6 px-6 py-6">
-        <section className="grid gap-4 xl:grid-cols-5">
-          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              <Sparkles className="h-3.5 w-3.5" />
-              Board controls
-            </div>
-
-            <div className="mt-4 flex flex-col gap-3">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-sm font-semibold text-slate-900">
-                  {selectedProject?.name || "Choose a project"}
-                </p>
-                <p className="mt-1 text-sm text-slate-500">
-                  {selectedProject?.description ||
-                    "Select a project in the dashboard header to load tasks and statuses."}
-                </p>
-              </div>
-
-              <label className="relative">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search by summary, assignee, priority, or issue key"
-                  className="w-full rounded-2xl border border-slate-300 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-yellow-500 focus:ring-4 focus:ring-yellow-100"
-                />
-              </label>
-
-              <div className="flex flex-wrap gap-2">
-                {filterOptions.map((filter) => {
-                  const isActive = activeFilter === filter.id;
-
-                  return (
-                    <button
-                      key={filter.id}
-                      type="button"
-                      onClick={() => setActiveFilter(filter.id)}
-                      className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition ${
-                        isActive
-                          ? "bg-black text-white shadow-sm"
-                          : "border border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white"
+                return (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    onClick={() => setActiveFilter(filter.id)}
+                    className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition ${
+                      isActive
+                        ? "bg-[#d0d0d6] text-white"
+                        : "bg-[#f3f2f0] text-[#aba7b1] hover:bg-[#ece9ef]"
+                    }`}
+                  >
+                    <span>{filter.label}</span>
+                    <span
+                      className={`inline-flex min-w-6 justify-center rounded-full px-1.5 py-0.5 text-xs ${
+                        isActive ? "bg-white/20 text-white" : "bg-white text-[#b0acb5]"
                       }`}
                     >
-                      <span>{filter.label}</span>
-                      <span
-                        className={`inline-flex min-w-6 justify-center rounded-full px-1.5 py-0.5 text-xs ${
-                          isActive ? "bg-white/20 text-white" : "bg-slate-200 text-slate-600"
-                        }`}
-                      >
-                        {filter.count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                <span className="font-medium text-slate-700">
-                  {projectId
-                    ? `${visibleTaskCount} visible issue${visibleTaskCount === 1 ? "" : "s"}`
-                    : "Choose a project to begin"}
-                </span>
-                {hasActiveFilters && (
-                  <span>
-                    Filtered by {selectedFilter.label.toLowerCase()}
-                    {normalizedQuery ? ` and "${searchQuery.trim()}"` : ""}
-                  </span>
-                )}
-              </div>
+                      {filter.count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <MetricCard
-            icon={LayoutGrid}
-            label="Visible"
-            value={projectId ? visibleTaskCount : 0}
-            helper={hasActiveFilters ? `${totalTasks} total on board` : "Board-wide issue count"}
-          />
-          <MetricCard
-            icon={CheckCircle2}
-            label="Done"
-            tone="emerald"
-            value={projectId ? `${completionRate}%` : "0%"}
-            helper={`${doneCount} completed issue${doneCount === 1 ? "" : "s"}`}
-          />
-          <MetricCard
-            icon={AlertTriangle}
-            label="At Risk"
-            tone={overdueCount > 0 ? "amber" : "violet"}
-            value={projectId ? overdueCount : 0}
-            helper={
-              overdueCount > 0
-                ? "Overdue work still in progress"
-                : `${assignedCount} issue${assignedCount === 1 ? "" : "s"} assigned`
-            }
-          />
-        </section>
+          <div className="flex flex-wrap gap-3">
+            <BoardStatPill label="Visible" value={visibleTaskCount} icon={LayoutGrid} tone="neutral" />
+            <BoardStatPill
+              label="Done"
+              value={`${completionRate}%`}
+              icon={CheckCircle2}
+              tone="mint"
+            />
+            <BoardStatPill label="Assigned" value={assignedCount} icon={UserCheck2} tone="warm" />
+            <BoardStatPill label="At Risk" value={overdueCount} icon={AlertTriangle} tone="rose" />
+          </div>
+        </div>
+
+        {hasActiveFilters && (
+          <div className="mt-4 rounded-2xl bg-[#f4f3f0] px-4 py-3 text-sm text-[#a4a0aa]">
+            Showing {visibleTaskCount} issue{visibleTaskCount === 1 ? "" : "s"} filtered by{" "}
+            {selectedFilter.label.toLowerCase()}
+            {externalQuery ? ` and workspace search "${workspaceQuery.trim()}"` : ""}
+            {internalQuery ? ` and board search "${searchQuery.trim()}"` : ""}.
+          </div>
+        )}
 
         {moveError && (
-          <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <div className="mt-4 flex items-center gap-3 rounded-2xl border border-[#edd4d5] bg-[#fbefed] px-4 py-3 text-sm text-[#b96f71]">
             <AlertTriangle className="h-4 w-4 flex-shrink-0" />
             <span>{moveError}</span>
           </div>
         )}
 
-        {!projectId ? (
-          <section className="rounded-[28px] border border-dashed border-slate-300 bg-white px-6 py-16 text-center shadow-sm">
-            <div className="mx-auto flex max-w-xl flex-col items-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-yellow-50 text-yellow-600">
-                <LayoutGrid className="h-8 w-8" />
-              </div>
-              <h2 className="mt-5 text-2xl font-semibold tracking-tight text-slate-900">
-                Pick a project to open the board
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                Once a project is selected, we&apos;ll load its statuses and render the issues in a
-                drag-and-drop board layout.
-              </p>
-            </div>
-          </section>
-        ) : isLoading ? (
-          <LoadingBoardSkeleton />
-        ) : loadError ? (
-          <section className="rounded-[28px] border border-red-200 bg-white px-6 py-16 text-center shadow-sm">
-            <div className="mx-auto flex max-w-xl flex-col items-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-red-50 text-red-600">
-                <AlertTriangle className="h-8 w-8" />
-              </div>
-              <h2 className="mt-5 text-2xl font-semibold tracking-tight text-slate-900">Board unavailable</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{loadError}</p>
-              <button
-                type="button"
-                onClick={handleRefreshBoard}
-                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-900"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Retry loading board
-              </button>
-            </div>
-          </section>
-        ) : statuses.length === 0 ? (
-          <section className="rounded-[28px] border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
-            <div className="mx-auto flex max-w-xl flex-col items-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-100 text-slate-500">
-                <Loader2 className="h-8 w-8" />
-              </div>
-              <h2 className="mt-5 text-2xl font-semibold tracking-tight text-slate-900">
-                No statuses are configured yet
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                This project doesn&apos;t have any workflow lanes yet, so there&apos;s nowhere to place work
-                items.
-              </p>
-            </div>
-          </section>
-        ) : (
-          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            <section className="rounded-[28px] border border-slate-200 bg-[#f7f8fc] p-4 shadow-sm">
-              <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">
-                    {selectedProject?.name ?? "Selected project"} workflow
-                  </p>
-                  <p className="text-sm text-slate-500">
-                    Drag issues between columns to update their status. Click a task card to open its detail drawer.
-                  </p>
+        <div className="mt-5">
+          {!projectId ? (
+            <section className="rounded-[28px] border border-dashed border-[#dbd8de] bg-[#faf9f7] px-6 py-16 text-center">
+              <div className="mx-auto flex max-w-xl flex-col items-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-[24px] bg-[#ece9ef] text-[#938e9a]">
+                  <LayoutGrid className="h-7 w-7" />
                 </div>
-                <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
-                  <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5">
-                    <LayoutGrid className="h-4 w-4 text-slate-500" />
-                    {statuses.length} lane{statuses.length === 1 ? "" : "s"}
-                  </span>
-                  <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5">
-                    <UserCheck2 className="h-4 w-4 text-slate-500" />
-                    {assignedCount} assigned
-                  </span>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto pb-2">
-                <div className="flex min-w-max gap-4">
-                  {statuses.map((status) => (
-                    <Column
-                      key={status.id}
-                      status={status}
-                      tasks={visibleTasks}
-                      projectKey={projectKey}
-                      isFiltered={hasActiveFilters}
-                      onTaskOpen={onTaskOpen}
-                    />
-                  ))}
-                </div>
+                <h3 className="mt-5 text-2xl font-semibold tracking-[-0.03em] text-[#6f6a75]">
+                  Pick a project to open the board
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-[#aaa6b0]">
+                  Once a project is selected, we&apos;ll load its statuses and render the tasks in a
+                  drag-and-drop board layout.
+                </p>
               </div>
             </section>
+          ) : isLoading ? (
+            <LoadingBoardSkeleton />
+          ) : loadError ? (
+            <section className="rounded-[28px] border border-[#edd4d5] bg-[#faf9f7] px-6 py-16 text-center">
+              <div className="mx-auto flex max-w-xl flex-col items-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-[24px] bg-[#fbefed] text-[#b96f71]">
+                  <AlertTriangle className="h-8 w-8" />
+                </div>
+                <h3 className="mt-5 text-2xl font-semibold tracking-[-0.03em] text-[#6f6a75]">
+                  Board unavailable
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-[#aaa6b0]">{loadError}</p>
+                <button
+                  type="button"
+                  onClick={handleRefreshBoard}
+                  className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#cfcfd5] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#c5c5cc]"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Retry loading board
+                </button>
+              </div>
+            </section>
+          ) : statuses.length === 0 ? (
+            <section className="rounded-[28px] border border-[#ddd9e2] bg-[#faf9f7] px-6 py-16 text-center">
+              <div className="mx-auto flex max-w-xl flex-col items-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-[24px] bg-[#ece9ef] text-[#938e9a]">
+                  <Loader2 className="h-8 w-8" />
+                </div>
+                <h3 className="mt-5 text-2xl font-semibold tracking-[-0.03em] text-[#6f6a75]">
+                  No statuses are configured yet
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-[#aaa6b0]">
+                  This project doesn&apos;t have any workflow lanes yet, so there&apos;s nowhere to place
+                  work items.
+                </p>
+              </div>
+            </section>
+          ) : (
+            <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+              <section className="rounded-[28px] border border-[#ddd9e2] bg-[#edeaee] p-4">
+                <div className="mb-4 flex flex-wrap items-center gap-3 rounded-[24px] bg-white/70 px-4 py-3 text-sm text-[#a4a0aa]">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-[#f3f2f0] px-3 py-1.5">
+                    <Sparkles className="h-4 w-4 text-[#b2a17e]" />
+                    {statuses.length} lane{statuses.length === 1 ? "" : "s"}
+                  </span>
+                  <span className="inline-flex items-center gap-2 rounded-full bg-[#f3f2f0] px-3 py-1.5">
+                    <UserCheck2 className="h-4 w-4 text-[#8da59a]" />
+                    {assignedCount} assigned
+                  </span>
+                  <span className="inline-flex items-center gap-2 rounded-full bg-[#f3f2f0] px-3 py-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-[#8da59a]" />
+                    {doneCount} completed
+                  </span>
+                </div>
 
-            <DragOverlay>
-              {activeTask ? <TaskCardOverlay task={activeTask} projectKey={projectKey} /> : null}
-            </DragOverlay>
-          </DndContext>
-        )}
+                <div className="overflow-x-auto pb-2">
+                  <div className="flex min-w-max gap-4">
+                    {statuses.map((status) => (
+                      <Column
+                        key={status.id}
+                        status={status}
+                        tasks={visibleTasks}
+                        projectKey={projectKey}
+                        isFiltered={hasActiveFilters}
+                        onTaskOpen={onTaskOpen}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </section>
+
+              <DragOverlay>
+                {activeTask ? <TaskCardOverlay task={activeTask} projectKey={projectKey} /> : null}
+              </DragOverlay>
+            </DndContext>
+          )}
+        </div>
       </div>
-    </div>
+    </section>
   );
 }

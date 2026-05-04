@@ -29,25 +29,25 @@ function getIssueTypeVisual(task) {
       return {
         icon: Bug,
         label: "Bug",
-        iconClasses: "bg-red-100 text-red-700",
+        iconClasses: "bg-[#f3dddd] text-[#bc7e80]",
       };
     case "story":
       return {
         icon: BookOpenText,
         label: "Story",
-        iconClasses: "bg-green-100 text-green-700",
+        iconClasses: "bg-[#deece7] text-[#71998f]",
       };
     case "spike":
       return {
         icon: Sparkles,
         label: "Spike",
-        iconClasses: "bg-purple-100 text-purple-700",
+        iconClasses: "bg-[#e8e2f1] text-[#8b7ca2]",
       };
     default:
       return {
         icon: CheckSquare,
         label: "Task",
-        iconClasses: "bg-yellow-100 text-yellow-700",
+        iconClasses: "bg-[#eee5d2] text-[#b18648]",
       };
   }
 }
@@ -59,7 +59,7 @@ function getPriorityVisual(priority) {
     return {
       icon: ArrowUp,
       label: priority || "High",
-      classes: "bg-red-50 text-red-700 ring-red-100",
+      classes: "bg-[#f9edeb] text-[#b87678] ring-[#f0d5d5]",
     };
   }
 
@@ -67,14 +67,14 @@ function getPriorityVisual(priority) {
     return {
       icon: ArrowRight,
       label: priority || "Medium",
-      classes: "bg-amber-50 text-amber-700 ring-amber-100",
+      classes: "bg-[#f6efe4] text-[#b18648] ring-[#efe0c7]",
     };
   }
 
   return {
     icon: ArrowDown,
     label: priority || "Low",
-    classes: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+    classes: "bg-[#edf5f1] text-[#6e998d] ring-[#d9ebe4]",
   };
 }
 
@@ -103,50 +103,49 @@ function TaskCardShell({
       {...listeners}
       {...attributes}
       onClick={onOpen}
-      className={`rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition ${
+      className={`rounded-[26px] border border-[#e5e1e6] bg-white/92 p-4 text-left shadow-[0_16px_36px_-30px_rgba(82,82,91,0.45)] transition ${
         isOverlay
-          ? "w-[296px] rotate-1 shadow-[0_24px_60px_-28px_rgba(15,23,42,0.45)]"
+          ? "w-[286px] -rotate-1 shadow-[0_28px_60px_-32px_rgba(82,82,91,0.55)]"
           : isDragging
             ? "cursor-grabbing opacity-40"
-            : "cursor-grab hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md active:cursor-grabbing"
+            : "cursor-grab hover:-translate-y-0.5 hover:border-[#d8d4db] hover:shadow-[0_18px_40px_-28px_rgba(82,82,91,0.5)] active:cursor-grabbing"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="inline-flex items-center gap-2">
-          <span
-            className={`inline-flex h-7 w-7 items-center justify-center rounded-xl ${issueType.iconClasses}`}
-          >
-            <IssueIcon className="h-4 w-4" />
-          </span>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              {issueType.label}
-            </p>
-            <p className="text-xs font-semibold text-slate-500">{getTaskKey(task, projectKey)}</p>
-          </div>
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#b8b4bd]">
+            {issueType.label} / {getTaskKey(task, projectKey)}
+          </p>
+          <h3 className="mt-2 text-[15px] font-medium leading-6 text-[#756f7b]">
+            {task.title || "Untitled issue"}
+          </h3>
         </div>
 
         <span
-          className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold ring-1 ${priority.classes}`}
+          className={`inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${issueType.iconClasses}`}
+        >
+          <IssueIcon className="h-4 w-4" />
+        </span>
+      </div>
+
+      {task.description && (
+        <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#aaa6b0]">{task.description}</p>
+      )}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <span
+          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${priority.classes}`}
         >
           <PriorityIcon className="h-3.5 w-3.5" />
           {priority.label}
         </span>
-      </div>
 
-      <h3 className="mt-4 text-sm font-semibold leading-6 text-slate-900">{task.title || "Untitled issue"}</h3>
-
-      {task.description && (
-        <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">{task.description}</p>
-      )}
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
         {task.dueDate && (
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
               overdue
-                ? "bg-red-50 text-red-700 ring-1 ring-red-100"
-                : "bg-slate-100 text-slate-600 ring-1 ring-slate-200"
+                ? "bg-[#f9edeb] text-[#b87678] ring-1 ring-[#f0d5d5]"
+                : "bg-[#f3f2ef] text-[#9b97a2] ring-1 ring-[#e5e1e6]"
             }`}
           >
             <CalendarClock className="h-3.5 w-3.5" />
@@ -156,26 +155,30 @@ function TaskCardShell({
         )}
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Assignee</p>
-          <p className="truncate text-sm font-medium text-slate-700">
-            {task.assignedUserName || "Unassigned"}
-          </p>
-        </div>
+      <div className="mt-4 rounded-[20px] bg-[#f4f3f0] px-3 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#c2bec6]">
+              Assignee
+            </p>
+            <p className="truncate text-sm font-medium text-[#8f8a98]">
+              {task.assignedUserName || "Unassigned"}
+            </p>
+          </div>
 
-        {task.assignedUserName ? (
-          <span
-            title={task.assignedUserName}
-            className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white"
-          >
-            {assigneeInitials}
-          </span>
-        ) : (
-          <span className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-            <UserRound className="h-4 w-4" />
-          </span>
-        )}
+          {task.assignedUserName ? (
+            <span
+              title={task.assignedUserName}
+              className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#d0cfd5] text-xs font-semibold text-white"
+            >
+              {assigneeInitials}
+            </span>
+          ) : (
+            <span className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-white text-[#bcb8c1]">
+              <UserRound className="h-4 w-4" />
+            </span>
+          )}
+        </div>
       </div>
     </article>
   );

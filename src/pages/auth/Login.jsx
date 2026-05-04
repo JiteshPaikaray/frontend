@@ -63,41 +63,14 @@ export default function Login() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0f172a]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.22),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.18),transparent_24%),linear-gradient(180deg,#0f172a_0%,#111827_100%)]" />
-      <div className="absolute left-1/2 top-[-10rem] h-[28rem] w-[28rem] -translate-x-1/2 rounded-full bg-white/5 blur-3xl" />
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-blue-50">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.1),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.08),transparent_50%)]" />
+      <div className="absolute -right-40 -top-40 h-80 w-80 rounded-full bg-blue-400/10 blur-3xl" />
+      <div className="absolute -left-40 -bottom-40 h-80 w-80 rounded-full bg-indigo-400/10 blur-3xl" />
 
-      <div className="relative mx-auto flex min-h-screen max-w-6xl items-center px-4 py-10">
-        <div className="grid w-full gap-8 lg:grid-cols-[1.15fr,0.85fr]">
-          <section className="hidden rounded-[36px] border border-white/10 bg-white/5 p-10 text-white shadow-[0_30px_80px_-35px_rgba(15,23,42,0.85)] backdrop-blur lg:block">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-200/80">
-              Backend ready
-            </p>
-            <h1 className="mt-5 max-w-xl text-5xl font-semibold leading-tight tracking-tight">
-              Ship work from a frontend that matches your API surface.
-            </h1>
-            <p className="mt-5 max-w-xl text-base leading-7 text-slate-300">
-              Authentication, profile, projects, tasks, dashboard reporting, and notifications are all
-              connected to the backend contract you implemented.
-            </p>
-
-            <div className="mt-10 grid gap-4 md:grid-cols-2">
-              <div className="rounded-[28px] border border-white/10 bg-white/5 p-5">
-                <p className="text-sm font-semibold text-white">Auth + profile</p>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Login, tenant registration, profile updates, password changes, and tenant users.
-                </p>
-              </div>
-              <div className="rounded-[28px] border border-white/10 bg-white/5 p-5">
-                <p className="text-sm font-semibold text-white">Delivery board</p>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Project-aware kanban, task CRUD, comments, summary metrics, and notifications.
-                </p>
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-[36px] border border-white/10 bg-white/95 p-6 shadow-[0_30px_80px_-35px_rgba(15,23,42,0.85)] backdrop-blur sm:p-8">
+      <div className="relative mx-auto flex min-h-screen max-w-7xl items-center justify-center px-4 py-10">
+        <div className="w-full max-w-md">
+          <section className="rounded-2xl border border-slate-200 bg-white p-8 shadow-lg shadow-slate-200/50">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">
@@ -142,7 +115,7 @@ export default function Login() {
             </div>
 
             {error && (
-              <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {error}
               </div>
             )}
@@ -150,16 +123,16 @@ export default function Login() {
             {mode === "login" ? (
               <form onSubmit={handleLogin} className="mt-6 space-y-4">
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">Email</span>
+                  <span className="mb-2 block text-sm font-medium text-slate-700">Email address</span>
                   <div className="relative">
-                    <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <input
                       type="email"
                       value={loginForm.email}
                       onChange={(event) =>
                         setLoginForm((current) => ({ ...current, email: event.target.value }))
                       }
-                      className="w-full rounded-2xl border border-slate-300 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                      className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                       placeholder="you@example.com"
                       required
                     />
@@ -169,14 +142,14 @@ export default function Login() {
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-slate-700">Password</span>
                   <div className="relative">
-                    <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <input
                       type="password"
                       value={loginForm.password}
                       onChange={(event) =>
                         setLoginForm((current) => ({ ...current, password: event.target.value }))
                       }
-                      className="w-full rounded-2xl border border-slate-300 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                      className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                       placeholder="Enter your password"
                       required
                     />
@@ -186,10 +159,10 @@ export default function Login() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Sign in
+                  {loading ? "Signing in..." : "Sign in"}
                 </button>
               </form>
             ) : (
@@ -198,7 +171,7 @@ export default function Login() {
                   <label className="block">
                     <span className="mb-2 block text-sm font-medium text-slate-700">Tenant name</span>
                     <div className="relative">
-                      <Building2 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <input
                         type="text"
                         value={registerForm.tenantName}
@@ -208,7 +181,7 @@ export default function Login() {
                             tenantName: event.target.value,
                           }))
                         }
-                        className="w-full rounded-2xl border border-slate-300 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                        className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                         placeholder="Acme Corp"
                         required
                       />
@@ -226,7 +199,7 @@ export default function Login() {
                           domain: event.target.value,
                         }))
                       }
-                      className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                      className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                       placeholder="acme.local"
                       required
                     />
@@ -236,14 +209,14 @@ export default function Login() {
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-slate-700">Admin name</span>
                   <div className="relative">
-                    <UserRound className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
                       value={registerForm.name}
                       onChange={(event) =>
                         setRegisterForm((current) => ({ ...current, name: event.target.value }))
                       }
-                      className="w-full rounded-2xl border border-slate-300 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                      className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                       placeholder="Jane Smith"
                       required
                     />
@@ -253,14 +226,14 @@ export default function Login() {
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-slate-700">Admin email</span>
                   <div className="relative">
-                    <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <input
                       type="email"
                       value={registerForm.email}
                       onChange={(event) =>
                         setRegisterForm((current) => ({ ...current, email: event.target.value }))
                       }
-                      className="w-full rounded-2xl border border-slate-300 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                      className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                       placeholder="admin@example.com"
                       required
                     />
@@ -270,7 +243,7 @@ export default function Login() {
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-slate-700">Password</span>
                   <div className="relative">
-                    <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <input
                       type="password"
                       value={registerForm.password}
@@ -280,7 +253,7 @@ export default function Login() {
                           password: event.target.value,
                         }))
                       }
-                      className="w-full rounded-2xl border border-slate-300 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                      className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                       placeholder="At least 6 characters"
                       minLength={6}
                       required
@@ -291,13 +264,17 @@ export default function Login() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Create workspace
+                  {loading ? "Creating workspace..." : "Create workspace"}
                 </button>
               </form>
             )}
+
+            <p className="mt-6 text-center text-xs text-slate-500">
+              All flows are connected to the backend API
+            </p>
           </section>
         </div>
       </div>
