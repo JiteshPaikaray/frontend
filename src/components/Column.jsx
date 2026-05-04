@@ -2,7 +2,7 @@ import { useDroppable } from "@dnd-kit/core";
 import TaskCard from "./TaskCard";
 import { getStatusTone } from "../utils/kanban";
 
-export default function Column({ status, tasks, projectKey, isFiltered = false }) {
+export default function Column({ status, tasks, projectKey, isFiltered = false, onTaskOpen }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `status-${status.id}`,
   });
@@ -15,7 +15,7 @@ export default function Column({ status, tasks, projectKey, isFiltered = false }
       ref={setNodeRef}
       className={`flex min-h-[620px] w-[320px] flex-shrink-0 flex-col rounded-[26px] border bg-slate-100/95 transition-all duration-200 ${
         isOver
-          ? "border-blue-400 shadow-[0_16px_40px_-20px_rgba(37,99,235,0.45)] ring-4 ring-blue-100"
+          ? "border-yellow-400 shadow-[0_16px_40px_-20px_rgba(234,179,8,0.45)] ring-4 ring-yellow-100"
           : "border-slate-200 shadow-sm"
       }`}
     >
@@ -62,7 +62,14 @@ export default function Column({ status, tasks, projectKey, isFiltered = false }
             </p>
           </div>
         ) : (
-          columnTasks.map((task) => <TaskCard key={task.id} task={task} projectKey={projectKey} />)
+          columnTasks.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              projectKey={projectKey}
+              onOpen={() => onTaskOpen?.(task)}
+            />
+          ))
         )}
       </div>
     </section>

@@ -5,16 +5,16 @@ import {
   ChevronRight,
   LayoutGrid,
   Loader2,
+  Plus,
   RefreshCw,
   Search,
   Sparkles,
   UserCheck2,
 } from "lucide-react";
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import ProjectSelector from "../components/ProjectSelector";
 import Column from "../components/Column";
 import { TaskCardOverlay } from "../components/TaskCard";
-import { getTasksByProject, moveTask } from "../services/taskService";
+import { moveTask, getTasksByProject } from "../services/taskService";
 import { getStatuses } from "../services/statusService";
 import { getProjectKey, getTaskKey, getPriorityLevel, isTaskOverdue } from "../utils/kanban";
 
@@ -64,10 +64,10 @@ function LoadingBoardSkeleton() {
 
 function MetricCard({ icon, label, value, tone = "blue", helper }) {
   const toneClasses = {
-    blue: "bg-blue-50 text-blue-700 ring-blue-100",
-    emerald: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+    blue: "bg-yellow-50 text-yellow-600 ring-yellow-100",
+    emerald: "bg-green-50 text-green-700 ring-green-100",
     amber: "bg-amber-50 text-amber-700 ring-amber-100",
-    violet: "bg-violet-50 text-violet-700 ring-violet-100",
+    violet: "bg-purple-50 text-purple-700 ring-purple-100",
   };
 
   return (
@@ -88,9 +88,14 @@ function MetricCard({ icon, label, value, tone = "blue", helper }) {
   );
 }
 
-export default function KanbanBoard() {
-  const [projectId, setProjectId] = useState(null);
-  const [selectedProject, setSelectedProject] = useState(null);
+export default function KanbanBoard({
+  projectId,
+  selectedProject,
+  refreshToken = 0,
+  onTaskOpen,
+  onCreateTask,
+  onTaskMoved,
+}) {
   const [tasks, setTasks] = useState([]);
   const [statuses, setStatuses] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -149,7 +154,7 @@ export default function KanbanBoard() {
     return () => {
       ignore = true;
     };
-  }, [projectId]);
+  }, [projectId, refreshToken]);
 
   async function handleRefreshBoard() {
     if (!projectId) {
@@ -173,15 +178,6 @@ export default function KanbanBoard() {
     } finally {
       setIsLoading(false);
     }
-  }
-
-  function handleProjectSelect(nextProjectId, project) {
-    setProjectId(nextProjectId);
-    setSelectedProject(project);
-    setSearchQuery("");
-    setActiveFilter("all");
-    setLoadError("");
-    setMoveError("");
   }
 
   function handleDragStart(event) {
@@ -220,6 +216,7 @@ export default function KanbanBoard() {
 
     try {
       await moveTask(taskId, nextStatusId);
+      await onTaskMoved?.();
     } catch {
       setTasks(previousTasks);
       setMoveError("The issue moved visually, but the save failed. Please try again.");
@@ -277,7 +274,7 @@ export default function KanbanBoard() {
   const assignedCount = tasks.filter((task) => Boolean(task.assignedUserName)).length;
   const completionRate = totalTasks ? Math.round((doneCount / totalTasks) * 100) : 0;
   const hasActiveFilters = normalizedQuery.length > 0 || activeFilter !== "all";
-  const boardTitle = selectedProject?.name ? `${selectedProject.name} board` : "JIRA-style board";
+  const boardTitle = selectedProject?.name ? `${selectedProject.name} board` : "Kanban board";
   const selectedFilter = filterOptions.find((option) => option.id === activeFilter) ?? filterOptions[0];
 
   return (
@@ -293,19 +290,27 @@ export default function KanbanBoard() {
 
         <div className="mt-4 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-500 text-white shadow-lg shadow-blue-200/60">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-yellow-500 to-amber-500 text-white shadow-lg shadow-yellow-200/60">
               <LayoutGrid className="h-6 w-6" />
             </div>
             <div>
               <h1 className="text-3xl font-semibold tracking-tight text-slate-900">{boardTitle}</h1>
               <p className="mt-1 max-w-3xl text-sm text-slate-600">
-                A denser delivery board with searchable issues, status lanes, and the same at-a-glance
-                workflow feel teams expect from JIRA.
+                Search, filter, and drag tasks across workflow lanes backed by the status and task APIs.
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={onCreateTask}
+              disabled={!projectId}
+              className="inline-flex items-center gap-2 rounded-xl bg-yellow-500 px-4 py-2 text-sm font-medium text-slate-950 shadow-sm transition hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Plus className="h-4 w-4" />
+              Create task
+            </button>
             <button
               type="button"
               onClick={handleRefreshBoard}
@@ -315,7 +320,7 @@ export default function KanbanBoard() {
               <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
               Refresh
             </button>
-            <span className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm">
+            <span className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-black px-4 py-2 text-sm font-medium text-white shadow-sm">
               <Sparkles className="h-4 w-4" />
               Kanban view
             </span>
@@ -333,7 +338,7 @@ export default function KanbanBoard() {
                 disabled={!isActive}
                 className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                   isActive
-                    ? "bg-blue-600 text-white shadow-sm"
+                    ? "bg-yellow-500 text-slate-950 shadow-sm"
                     : "border border-slate-200 bg-slate-100 text-slate-500"
                 }`}
               >
@@ -353,20 +358,26 @@ export default function KanbanBoard() {
             </div>
 
             <div className="mt-4 flex flex-col gap-3">
-              <div className="flex flex-col gap-3 lg:flex-row">
-                <ProjectSelector value={projectId} onSelect={handleProjectSelect} />
-
-                <label className="relative flex-1">
-                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="search"
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search by summary, assignee, priority, or issue key"
-                    className="w-full rounded-2xl border border-slate-300 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                  />
-                </label>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-sm font-semibold text-slate-900">
+                  {selectedProject?.name || "Choose a project"}
+                </p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {selectedProject?.description ||
+                    "Select a project in the dashboard header to load tasks and statuses."}
+                </p>
               </div>
+
+              <label className="relative">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search by summary, assignee, priority, or issue key"
+                  className="w-full rounded-2xl border border-slate-300 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-yellow-500 focus:ring-4 focus:ring-yellow-100"
+                />
+              </label>
 
               <div className="flex flex-wrap gap-2">
                 {filterOptions.map((filter) => {
@@ -379,7 +390,7 @@ export default function KanbanBoard() {
                       onClick={() => setActiveFilter(filter.id)}
                       className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition ${
                         isActive
-                          ? "bg-slate-900 text-white shadow-sm"
+                          ? "bg-black text-white shadow-sm"
                           : "border border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white"
                       }`}
                     >
@@ -398,7 +409,9 @@ export default function KanbanBoard() {
 
               <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
                 <span className="font-medium text-slate-700">
-                  {projectId ? `${visibleTaskCount} visible issue${visibleTaskCount === 1 ? "" : "s"}` : "Choose a project to begin"}
+                  {projectId
+                    ? `${visibleTaskCount} visible issue${visibleTaskCount === 1 ? "" : "s"}`
+                    : "Choose a project to begin"}
                 </span>
                 {hasActiveFilters && (
                   <span>
@@ -446,19 +459,16 @@ export default function KanbanBoard() {
         {!projectId ? (
           <section className="rounded-[28px] border border-dashed border-slate-300 bg-white px-6 py-16 text-center shadow-sm">
             <div className="mx-auto flex max-w-xl flex-col items-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-blue-50 text-blue-600">
+              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-yellow-50 text-yellow-600">
                 <LayoutGrid className="h-8 w-8" />
               </div>
               <h2 className="mt-5 text-2xl font-semibold tracking-tight text-slate-900">
                 Pick a project to open the board
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                Once a project is selected, we'll load its statuses and render the issues in a
-                JIRA-style board layout with drag-and-drop status updates.
+                Once a project is selected, we&apos;ll load its statuses and render the issues in a
+                drag-and-drop board layout.
               </p>
-              <div className="mt-6 w-full max-w-sm">
-                <ProjectSelector value={projectId} onSelect={handleProjectSelect} />
-              </div>
             </div>
           </section>
         ) : isLoading ? (
@@ -474,7 +484,7 @@ export default function KanbanBoard() {
               <button
                 type="button"
                 onClick={handleRefreshBoard}
-                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
+                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-900"
               >
                 <RefreshCw className="h-4 w-4" />
                 Retry loading board
@@ -491,8 +501,8 @@ export default function KanbanBoard() {
                 No statuses are configured yet
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                This project doesn&apos;t have any board lanes, so there&apos;s nowhere to place work
-                items yet.
+                This project doesn&apos;t have any workflow lanes yet, so there&apos;s nowhere to place work
+                items.
               </p>
             </div>
           </section>
@@ -505,8 +515,7 @@ export default function KanbanBoard() {
                     {selectedProject?.name ?? "Selected project"} workflow
                   </p>
                   <p className="text-sm text-slate-500">
-                    Drag issues between columns to update their status. Search and board filters stay
-                    applied while you work.
+                    Drag issues between columns to update their status. Click a task card to open its detail drawer.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
@@ -530,6 +539,7 @@ export default function KanbanBoard() {
                       tasks={visibleTasks}
                       projectKey={projectKey}
                       isFiltered={hasActiveFilters}
+                      onTaskOpen={onTaskOpen}
                     />
                   ))}
                 </div>

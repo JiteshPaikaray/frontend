@@ -35,19 +35,19 @@ function getIssueTypeVisual(task) {
       return {
         icon: BookOpenText,
         label: "Story",
-        iconClasses: "bg-emerald-100 text-emerald-700",
+        iconClasses: "bg-green-100 text-green-700",
       };
     case "spike":
       return {
         icon: Sparkles,
         label: "Spike",
-        iconClasses: "bg-violet-100 text-violet-700",
+        iconClasses: "bg-purple-100 text-purple-700",
       };
     default:
       return {
         icon: CheckSquare,
         label: "Task",
-        iconClasses: "bg-blue-100 text-blue-700",
+        iconClasses: "bg-yellow-100 text-yellow-700",
       };
   }
 }
@@ -78,7 +78,17 @@ function getPriorityVisual(priority) {
   };
 }
 
-function TaskCardShell({ task, projectKey, cardRef, style, listeners, attributes, isDragging, isOverlay }) {
+function TaskCardShell({
+  task,
+  projectKey,
+  cardRef,
+  style,
+  listeners,
+  attributes,
+  isDragging,
+  isOverlay,
+  onOpen,
+}) {
   const issueType = getIssueTypeVisual(task);
   const priority = getPriorityVisual(task.priority);
   const overdue = isTaskOverdue(task);
@@ -92,6 +102,7 @@ function TaskCardShell({ task, projectKey, cardRef, style, listeners, attributes
       style={style}
       {...listeners}
       {...attributes}
+      onClick={onOpen}
       className={`rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition ${
         isOverlay
           ? "w-[296px] rotate-1 shadow-[0_24px_60px_-28px_rgba(15,23,42,0.45)]"
@@ -170,7 +181,7 @@ function TaskCardShell({ task, projectKey, cardRef, style, listeners, attributes
   );
 }
 
-export default function TaskCard({ task, projectKey }) {
+export default function TaskCard({ task, projectKey, onOpen }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: String(task.id),
   });
@@ -190,6 +201,7 @@ export default function TaskCard({ task, projectKey }) {
       attributes={attributes}
       isDragging={isDragging}
       isOverlay={false}
+      onOpen={onOpen}
     />
   );
 }
@@ -204,6 +216,7 @@ export function TaskCardOverlay({ task, projectKey }) {
       attributes={undefined}
       isDragging={false}
       isOverlay
+      onOpen={undefined}
     />
   );
 }
